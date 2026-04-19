@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 28% 98%;
+    --foreground: 224 71% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+
+    --primary: 231 100% 59%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 14% 20%;
+
+    --muted: 220 14% 94%;
+    --muted-foreground: 220 8% 46%;
+
+    --accent: 231 100% 95%;
+    --accent-foreground: 231 82% 30%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 13% 90%;
+    --input: 220 13% 90%;
+    --ring: 231 82% 48%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 224 47% 5%;
+    --foreground: 210 40% 98%;
+
+    --card: 224 43% 8%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 224 43% 8%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 231 100% 68%;
+    --primary-foreground: 224 71% 4%;
+
+    --secondary: 224 30% 16%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 224 30% 16%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 231 40% 22%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62% 55%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 224 30% 18%;
+    --input: 224 30% 18%;
+    --ring: 231 82% 68%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01", "ss03";
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+
+  .bg-star-field {
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, hsl(var(--foreground) / 0.12) 50%, transparent 50%),
+      radial-gradient(1px 1px at 70% 60%, hsl(var(--foreground) / 0.08) 50%, transparent 50%),
+      radial-gradient(1px 1px at 40% 80%, hsl(var(--foreground) / 0.1) 50%, transparent 50%),
+      radial-gradient(1px 1px at 90% 20%, hsl(var(--foreground) / 0.08) 50%, transparent 50%),
+      radial-gradient(1px 1px at 10% 65%, hsl(var(--foreground) / 0.07) 50%, transparent 50%);
+    background-size: 220px 220px;
+  }
+
+  .bg-grid {
+    background-image: linear-gradient(
+        to right,
+        hsl(var(--border) / 0.6) 1px,
+        transparent 1px
+      ),
+      linear-gradient(to bottom, hsl(var(--border) / 0.6) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .bg-aurora {
+    background-image:
+      radial-gradient(1200px circle at 10% -10%, hsl(231 100% 72% / 0.18), transparent 40%),
+      radial-gradient(900px circle at 100% 0%, hsl(259 100% 72% / 0.18), transparent 40%),
+      radial-gradient(700px circle at 50% 100%, hsl(191 100% 60% / 0.12), transparent 50%);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
