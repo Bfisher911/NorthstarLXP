@@ -1,12 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { Search, Users } from "lucide-react";
+import { BellRing, Search, Send, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Button } from "@/components/ui/button";
+import { BulkToolbar } from "@/components/ui/bulk-toolbar";
+import { useToast } from "@/components/ui/toast";
 import { cn, initials } from "@/lib/utils";
 import type { UserRecord } from "@/lib/types";
 
@@ -15,6 +18,34 @@ type Facet = "all" | "admin" | "manager" | "learner";
 export function PeopleDirectory({ users }: { users: UserRecord[] }) {
   const [query, setQuery] = React.useState("");
   const [facet, setFacet] = React.useState<Facet>("all");
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const { toast } = useToast();
+
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const clearSelection = () => setSelected(new Set());
+
+  const runAction = (verb: string) => {
+    const n = selected.size;
+    toast({
+      title: `${verb} sent`,
+      description: `${n} ${n === 1 ? "person" : "people"} will receive this action.`,
+      variant: "success",
+      action: {
+        label: "Undo",
+        onClick: () => {
+          toast({ title: `${verb} undone`, variant: "default" });
+        },
+      },
+    });
+    clearSelection();
+  };
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -76,6 +107,21 @@ export function PeopleDirectory({ users }: { users: UserRecord[] }) {
             <table className="w-full text-sm">
               <thead className="border-b bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
+                  <th className="w-8 px-3 py-3">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all"
+                      className="h-3.5 w-3.5 accent-primary"
+                      checked={filtered.length > 0 && filtered.every((u) => selected.has(u.id))}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelected(new Set(filtered.map((u) => u.id)));
+                        } else {
+                          clearSelection();
+                        }
+                      }}
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left">Person</th>
                   <th className="px-4 py-3 text-left">Title / Department</th>
                   <th className="px-4 py-3 text-left">Location</th>
@@ -85,7 +131,22 @@ export function PeopleDirectory({ users }: { users: UserRecord[] }) {
               </thead>
               <tbody className="divide-y">
                 {filtered.map((u) => (
-                  <tr key={u.id} className="transition hover:bg-accent/30">
+                  <tr
+                    key={u.id}
+                    className={cn(
+                      "transition hover:bg-accent/30",
+                      selected.has(u.id) && "bg-primary/5"
+                    )}
+                  >
+                    <td className="w-8 px-3 py-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${u.name}`}
+                        className="h-3.5 w-3.5 accent-primary"
+                        checked={selected.has(u.id)}
+                        onChange={() => toggle(u.id)}
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
@@ -125,6 +186,14 @@ export function PeopleDirectory({ users }: { users: UserRecord[] }) {
           </CardContent>
         </Card>
       )}
+      <BulkToolbar count={selected.size} onClear={clearSelection}>
+        <Button size="sm" onClick={() => runAction("Assignment")}>
+          <Send className="h-3.5 w-3.5" /> Assign training
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => runAction("Reminder")}>
+          <BellRing className="h-3.5 w-3.5" /> Send reminder
+        </Button>
+      </BulkToolbar>
     </div>
   );
 }

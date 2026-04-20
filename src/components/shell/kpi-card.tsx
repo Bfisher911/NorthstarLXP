@@ -2,6 +2,7 @@ import * as React from "react";
 import { ArrowDownRight, ArrowUpRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 
 interface KpiCardProps {
   label: string;
@@ -22,6 +23,29 @@ const accentMap: Record<NonNullable<KpiCardProps["accent"]>, string> = {
   indigo: "from-indigo-500/20 to-indigo-500/0 text-indigo-600",
 };
 
+function renderValue(value: string | number): React.ReactNode {
+  if (typeof value === "number") {
+    return <AnimatedNumber value={value} />;
+  }
+  // Parse values like "99.98%", "2,842", "38m", "$420". Animate the leading
+  // integer if one is present; otherwise render as-is.
+  const match = value.match(/^([^\d-]*)(-?\d[\d,]*)(.*)$/);
+  if (match) {
+    const [, prefix, digits, suffix] = match;
+    const parsed = Number(digits.replace(/,/g, ""));
+    if (Number.isFinite(parsed)) {
+      return (
+        <AnimatedNumber
+          value={parsed}
+          prefix={prefix || undefined}
+          suffix={suffix || undefined}
+        />
+      );
+    }
+  }
+  return value;
+}
+
 export function KpiCard({ label, value, hint, delta, icon: Icon, accent = "sky" }: KpiCardProps) {
   const positive = delta !== undefined && delta >= 0;
   return (
@@ -36,7 +60,9 @@ export function KpiCard({ label, value, hint, delta, icon: Icon, accent = "sky" 
         <div className="flex items-start justify-between">
           <div>
             <div className="text-xs font-medium text-muted-foreground">{label}</div>
-            <div className="mt-1.5 font-display text-2xl font-semibold tracking-tight">{value}</div>
+            <div className="mt-1.5 font-display text-2xl font-semibold tracking-tight">
+              {renderValue(value)}
+            </div>
             {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
           </div>
           {Icon && (

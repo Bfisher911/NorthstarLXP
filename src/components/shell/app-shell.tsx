@@ -3,6 +3,7 @@ import { Sidebar, type NavGroup } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
 import { Breadcrumbs } from "@/components/shell/breadcrumbs";
 import { CommandPaletteProvider } from "@/components/shell/command-palette";
+import { MobileNav } from "@/components/shell/mobile-nav";
 import { ToastProvider } from "@/components/ui/toast";
 import { ImpersonationBanner } from "@/components/shell/impersonation-banner";
 import { buildCommandCatalog } from "@/lib/command-catalog";
@@ -51,13 +52,16 @@ export function AppShell({
     <ToastProvider>
       <CommandPaletteProvider items={commands}>
         <div className="flex h-screen w-full overflow-hidden">
-          <Sidebar groups={groups} header={<NorthstarLogo />} footer={sidebarFooter} />
+          <div className="hidden md:flex">
+            <Sidebar groups={groups} header={<NorthstarLogo />} footer={sidebarFooter} />
+          </div>
           <div className="flex flex-1 flex-col overflow-hidden">
             <Topbar
               user={user}
               roleLabel={roleLabel}
               scopeLabel={scopeLabel}
               impersonating={impersonating}
+              mobileNav={<MobileNav groups={groups} sidebarFooter={sidebarFooter} />}
             />
             {impersonating && <ImpersonationBanner />}
             <main className="relative flex-1 overflow-y-auto scrollbar-thin bg-gradient-to-b from-background to-muted/20">

@@ -16,17 +16,20 @@ import { initials } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
 import { signOut } from "@/app/actions/session";
 import { useCommandPalette } from "@/components/shell/command-palette";
+import { ShortcutsLegend } from "@/components/shell/shortcuts-legend";
 
 export function Topbar({
   user,
   roleLabel,
   scopeLabel,
   impersonating,
+  mobileNav,
 }: {
   user: { id: string; name: string; email: string };
   roleLabel: string;
   scopeLabel?: string;
   impersonating?: boolean;
+  mobileNav?: React.ReactNode;
 }) {
   const { theme, toggle } = useTheme();
   const palette = useCommandPalette();
@@ -34,7 +37,8 @@ export function Topbar({
   void impersonating; // banner is rendered in AppShell now
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/75 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/75 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-6">
+      {mobileNav}
       <div className="flex flex-1 items-center gap-2">
         <button
           type="button"
@@ -47,6 +51,9 @@ export function Topbar({
             ⌘K
           </kbd>
         </button>
+      </div>
+      <div className="hidden sm:block">
+        <ShortcutsLegend />
       </div>
       <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
         {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

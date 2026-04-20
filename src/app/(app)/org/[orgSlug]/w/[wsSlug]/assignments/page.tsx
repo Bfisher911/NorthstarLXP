@@ -49,7 +49,7 @@ export default async function AssignmentsPage({
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {methods.map((m) => (
-          <button key={m.title} className="rounded-2xl border bg-card p-5 text-left transition hover:border-primary/50 hover:shadow-md">
+          <button key={m.title} className="rounded-2xl border bg-card p-5 text-left card-hover">
             <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <m.icon className="h-4 w-4" />
             </div>
