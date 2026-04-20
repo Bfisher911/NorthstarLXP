@@ -24,6 +24,7 @@ import { Progress } from "@/components/ui/progress";
 import { requireSession } from "@/lib/auth";
 import { getAssignmentsForUser, getCourseById } from "@/lib/data";
 import { AttestForm } from "@/components/learner/attest-form";
+import { CoursePlayerControls } from "@/components/learner/course-player-controls";
 import { formatDate } from "@/lib/utils";
 import type { CourseModule } from "@/lib/types";
 
@@ -179,11 +180,6 @@ export default async function CoursePage({
               <CardTitle>Your progress</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Completion</span>
-                <span className="font-semibold">{progress}%</span>
-              </div>
-              <Progress value={progress} />
               {a?.dueAt && (
                 <div className="rounded-lg border bg-muted/40 px-3 py-2 text-xs">
                   <span className="text-muted-foreground">Due: </span>
@@ -197,10 +193,12 @@ export default async function CoursePage({
                   <span className="font-medium">{a.source}</span>
                 </div>
               )}
-              <Button className="w-full" size="lg">
-                <PlayCircle className="h-4 w-4" />
-                {a?.status === "completed" ? "Review course" : a?.progress && a.progress > 0 ? "Continue" : "Start course"}
-              </Button>
+              <CoursePlayerControls
+                initialProgress={progress}
+                alreadyCompleted={a?.status === "completed"}
+                courseTitle={course.title}
+                nextUpHref="/learner/journey"
+              />
             </CardContent>
           </Card>
 

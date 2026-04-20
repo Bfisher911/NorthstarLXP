@@ -18,6 +18,7 @@ import { Progress } from "@/components/ui/progress";
 import { JourneyMap } from "@/components/path/journey-map";
 import { StatRing } from "@/components/ui/stat-ring";
 import { StatusChip } from "@/components/ui/status-chip";
+import { StreakCard } from "@/components/learner/streak-card";
 import { requireSession } from "@/lib/auth";
 import {
   getAssignmentsForUser,
@@ -89,8 +90,12 @@ export default async function LearnerDashboard() {
               </Button>
             </div>
           </div>
-          <div className="flex items-center gap-5">
+          <div className="flex flex-col items-center gap-4">
             <StatRing value={totalProgress / 100} size={140} stroke={12} sublabel="Journey" tone="primary" />
+            <StreakCard
+              streakDays={9}
+              recent={[true, true, true, false, true, true, true]}
+            />
           </div>
         </div>
       </section>

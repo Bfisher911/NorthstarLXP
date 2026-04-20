@@ -15,6 +15,7 @@ import {
   Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useReducedMotion } from "@/lib/hooks";
 import type { LearningPath, PathNode, PathNodeKind } from "@/lib/types";
 
 type NodeStatus = "locked" | "available" | "in_progress" | "completed" | "overdue" | "expiring";
@@ -26,6 +27,8 @@ export interface JourneyMapProps {
   courseLinkPrefix?: string;
   legend?: boolean;
   height?: number | string;
+  /** Enable click-to-focus: selecting a node dims non-ancestor/descendant nodes. */
+  focusable?: boolean;
 }
 
 function linkForNode(node: PathNode, prefix?: string): string | undefined {
@@ -87,10 +90,12 @@ export function JourneyMap({
   courseLinkPrefix,
   legend = true,
   height = 420,
+  focusable = true,
 }: JourneyMapProps) {
   const width = 1000;
   const h = typeof height === "number" ? height : 420;
   const pad = 60;
+  const reducedMotion = useReducedMotion();
 
   const toX = (x: number) => pad + (x / 100) * (width - pad * 2);
   const toY = (y: number) => pad + (y / 100) * (h - pad * 2);
@@ -107,6 +112,46 @@ export function JourneyMap({
   const active = selected ?? hover;
   const activeNode = active ? nodeById.get(active) : null;
   const activeStatus = activeNode ? statuses[activeNode.id] ?? "locked" : null;
+
+  // Build adjacency for focus-mode ancestor / descendant traversal.
+  const { ancestors, descendants } = React.useMemo(() => {
+    const inc: Record<string, string[]> = {};
+    const out: Record<string, string[]> = {};
+    for (const e of path.edges) {
+      (inc[e.to] ??= []).push(e.from);
+      (out[e.from] ??= []).push(e.to);
+    }
+    return { ancestors: inc, descendants: out };
+  }, [path.edges]);
+
+  const focusSet = React.useMemo(() => {
+    if (!selected) return null;
+    const set = new Set<string>([selected]);
+    const expand = (id: string, graph: Record<string, string[]>) => {
+      const stack = [id];
+      while (stack.length) {
+        const cur = stack.pop()!;
+        for (const next of graph[cur] ?? []) {
+          if (!set.has(next)) {
+            set.add(next);
+            stack.push(next);
+          }
+        }
+      }
+    };
+    expand(selected, ancestors);
+    expand(selected, descendants);
+    return set;
+  }, [selected, ancestors, descendants]);
+
+  const completedEdges = React.useMemo(
+    () =>
+      path.edges.filter((e) => {
+        const s = statuses[e.from];
+        return s === "completed";
+      }),
+    [path.edges, statuses]
+  );
 
   return (
     <div className="relative">
@@ -146,25 +191,34 @@ export function JourneyMap({
             const to = nodeById.get(edge.to);
             if (!from || !to) return null;
             const fromStatus = statuses[from.id] ?? "locked";
-            const done =
+            const toStatus = statuses[to.id] ?? "locked";
+            const done = fromStatus === "completed";
+            const activeFlow =
               fromStatus === "completed" ||
-              statuses[to.id] === "completed" ||
-              statuses[to.id] === "in_progress";
+              toStatus === "completed" ||
+              toStatus === "in_progress";
             const x1 = toX(from.x);
             const y1 = toY(from.y);
             const x2 = toX(to.x);
             const y2 = toY(to.y);
             const midX = (x1 + x2) / 2;
+            const pathD = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+            const dimmed = focusSet && !(focusSet.has(from.id) && focusSet.has(to.id));
             return (
-              <g key={edge.id}>
+              <g
+                key={edge.id}
+                className="transition-opacity"
+                style={{ opacity: dimmed ? 0.15 : 1 }}
+              >
                 <path
-                  d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
+                  id={`edge-${path.id}-${edge.id}`}
+                  d={pathD}
                   fill="none"
-                  stroke={done ? "url(#edgeDone)" : "url(#edgeGrad)"}
+                  stroke={activeFlow ? "url(#edgeDone)" : "url(#edgeGrad)"}
                   strokeWidth={edge.alternate ? 1.8 : 2.4}
                   strokeDasharray={edge.alternate ? "6 6" : undefined}
                   strokeLinecap="round"
-                  opacity={done ? 0.95 : 0.55}
+                  opacity={activeFlow ? 0.95 : 0.55}
                 />
                 {edge.label && (
                   <g>
@@ -192,6 +246,35 @@ export function JourneyMap({
             );
           })}
 
+          {/* Comet trail along every completed edge — a glowing dot travels
+              from completed source toward its next node so the learner can
+              literally see their progress move through the journey. */}
+          {!reducedMotion &&
+            completedEdges.map((edge, i) => (
+              <g key={`comet-${edge.id}`} opacity={focusSet ? 0.25 : 0.95}>
+                <circle r={5} fill="#34d399" filter="url(#softGlow)">
+                  <animateMotion
+                    dur={`${3 + (i % 3) * 0.7}s`}
+                    repeatCount="indefinite"
+                    begin={`${(i * 0.4) % 2}s`}
+                    rotate="auto"
+                  >
+                    <mpath xlinkHref={`#edge-${path.id}-${edge.id}`} />
+                  </animateMotion>
+                </circle>
+                <circle r={2} fill="#ffffff">
+                  <animateMotion
+                    dur={`${3 + (i % 3) * 0.7}s`}
+                    repeatCount="indefinite"
+                    begin={`${(i * 0.4) % 2}s`}
+                    rotate="auto"
+                  >
+                    <mpath xlinkHref={`#edge-${path.id}-${edge.id}`} />
+                  </animateMotion>
+                </circle>
+              </g>
+            ))}
+
           {path.nodes.map((node) => {
             const status: NodeStatus = statuses[node.id] ?? "locked";
             const colors = statusColor[status];
@@ -200,14 +283,22 @@ export function JourneyMap({
             const Icon = kindIcon[node.kind];
             const isActive = active === node.id;
             const r = node.kind === "credential" ? 28 : 22;
+            const dimmed = focusSet ? !focusSet.has(node.id) : false;
             const content = (
               <g
                 key={node.id}
-                className="cursor-pointer transition-transform"
+                className="cursor-pointer transition-all"
                 onMouseEnter={() => setHover(node.id)}
                 onMouseLeave={() => setHover((h) => (h === node.id ? null : h))}
-                onClick={() => setSelected((s) => (s === node.id ? null : node.id))}
+                onClick={() => {
+                  if (focusable) {
+                    setSelected((s) => (s === node.id ? null : node.id));
+                  } else {
+                    setSelected((s) => (s === node.id ? null : node.id));
+                  }
+                }}
                 transform={isActive ? `translate(0, -3)` : undefined}
+                style={{ opacity: dimmed ? 0.22 : 1 }}
               >
                 <circle
                   cx={cx}
@@ -303,6 +394,16 @@ export function JourneyMap({
             href={linkForNode(activeNode, courseLinkPrefix)}
             onClose={() => setSelected(null)}
           />
+        )}
+
+        {selected && focusable && (
+          <button
+            type="button"
+            onClick={() => setSelected(null)}
+            className="absolute right-3 top-3 z-20 rounded-full border bg-background/80 px-3 py-1 text-[11px] font-medium text-muted-foreground backdrop-blur transition hover:text-foreground"
+          >
+            Reset focus
+          </button>
         )}
       </div>
 
