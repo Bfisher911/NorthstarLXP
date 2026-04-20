@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { CourseThumbnail } from "@/components/course/course-thumbnail";
 import { cn, relativeDate } from "@/lib/utils";
 import type { Course } from "@/lib/types";
 
@@ -140,14 +141,13 @@ export function CourseBrowser({
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((c) => (
             <Card key={c.id} className="group overflow-hidden card-hover">
-              <div
-                className={cn(
-                  "relative flex h-32 items-center justify-center bg-gradient-to-br text-4xl text-white",
-                  c.thumbnailColor
-                )}
-              >
-                <div aria-hidden className="absolute inset-0 bg-star-field opacity-20" />
-                <span className="relative">{c.thumbnailEmoji}</span>
+              <div className="relative">
+                <CourseThumbnail
+                  id={c.id}
+                  gradientClass={c.thumbnailColor}
+                  emoji={c.thumbnailEmoji}
+                  className="h-32"
+                />
                 {c.shareToOrg && (
                   <Badge
                     variant="outline"

@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
-import { Brain, Check, X } from "lucide-react";
+import { Brain } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { AiReviewQueue } from "@/components/ai/ai-review-queue";
 import {
   aiSuggestions,
   getCourseById,
@@ -12,7 +12,6 @@ import {
   getUserById,
   getWorkspaceBySlug,
 } from "@/lib/data";
-import { initials, relativeDate } from "@/lib/utils";
 
 export default async function AiReviewPage({
   params,
@@ -59,51 +58,23 @@ export default async function AiReviewPage({
         <CardHeader>
           <CardTitle>Queue</CardTitle>
         </CardHeader>
-        <CardContent className="divide-y">
-          {pending.map((s) => {
-            const u = getUserById(s.userId);
-            const c = s.courseId ? getCourseById(s.courseId) : null;
-            return (
-              <div key={s.id} className="flex items-start gap-4 py-4">
-                <Avatar>
-                  <AvatarFallback>{initials(u?.name ?? "?")}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold">{u?.name}</span>
-                    <span className="text-xs text-muted-foreground">·</span>
-                    <span className="text-xs text-muted-foreground">{u?.employee?.title}</span>
-                    <Badge variant="outline">{Math.round(s.confidence * 100)}% confidence</Badge>
-                    <span className="text-xs text-muted-foreground">· {relativeDate(s.createdAt)}</span>
-                  </div>
-                  <div className="mt-1 text-sm">
-                    Suggest assigning <span className="font-medium">{c?.title}</span>
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">{s.reason}</div>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {s.evidence.map((e) => (
-                      <Badge key={e} variant="outline" className="text-[10px]">
-                        {e}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Button size="sm" className="h-8">
-                    <Check className="h-3.5 w-3.5" /> Approve
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-8">
-                    <X className="h-3.5 w-3.5" /> Reject
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-          {pending.length === 0 && (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              Nothing to review. Nice work.
-            </div>
-          )}
+        <CardContent>
+          <AiReviewQueue
+            items={pending.map((s) => {
+              const u = getUserById(s.userId);
+              const c = s.courseId ? getCourseById(s.courseId) : null;
+              return {
+                id: s.id,
+                userName: u?.name ?? "Unknown",
+                userTitle: u?.employee?.title,
+                courseTitle: c?.title ?? "Unknown course",
+                confidence: s.confidence,
+                createdAt: s.createdAt,
+                reason: s.reason,
+                evidence: s.evidence,
+              };
+            })}
+          />
         </CardContent>
       </Card>
     </div>

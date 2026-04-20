@@ -14,8 +14,10 @@ import { KpiCard } from "@/components/shell/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MiniTrend } from "@/components/charts/mini-trend";
+import { TrendArea } from "@/components/charts/area-chart";
 import { ComplianceBar } from "@/components/charts/compliance-bar";
+import { CompletionHeatmap } from "@/components/charts/completion-heatmap";
+import { CompletionFunnel } from "@/components/charts/completion-funnel";
 import { dashboardShares, getOrgBySlug, getWorkspacesForOrg } from "@/lib/data";
 import { formatPct } from "@/lib/utils";
 
@@ -30,6 +32,17 @@ const trendData = [
   { label: "Wk 8", value: 88 },
 ];
 
+// 14 weeks × 7 days = 98 points of synthesized daily completion counts. Higher
+// activity mid-week, light weekends, trending up over time — feels real.
+const heatmapValues = Array.from({ length: 98 }, (_, i) => {
+  const dayOfWeek = i % 7;
+  const weekIndex = Math.floor(i / 7);
+  const weekday = dayOfWeek < 5 ? 14 : 3;
+  const trend = weekIndex * 1.2;
+  const noise = ((i * 2647) % 9) - 3;
+  return Math.max(0, Math.round(weekday + trend + noise));
+});
+
 export default async function ReportsPage({
   params,
 }: {
@@ -42,10 +55,18 @@ export default async function ReportsPage({
   const shares = dashboardShares.filter((s) => s.orgId === org.id);
 
   const byWorkspace = ws.map((w) => ({
-    label: w.name.replace(/(^|\s).*? /, (s) => s.length > 14 ? s : s).slice(0, 14),
+    label: w.name.length > 18 ? w.name.slice(0, 16) + "…" : w.name,
     complete: Math.round(w.complianceHealth * 100),
     overdue: Math.max(0, 100 - Math.round(w.complianceHealth * 100) - 5),
   }));
+
+  // Funnel: assigned → started → in-progress → completed
+  const funnelStages = [
+    { label: "Assigned", value: 4820, tone: "primary" as const },
+    { label: "Started", value: 4217, tone: "sky" as const },
+    { label: "In progress", value: 3612, tone: "violet" as const },
+    { label: "Completed", value: 3198, tone: "emerald" as const },
+  ];
 
   return (
     <div className="space-y-8">
@@ -70,11 +91,15 @@ export default async function ReportsPage({
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Completion trend</CardTitle>
+          <CardHeader className="flex flex-row items-start justify-between">
+            <div>
+              <CardTitle>Completion trend</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">Weekly completion rate across every workspace.</p>
+            </div>
+            <Badge variant="success">+26 pts vs wk 1</Badge>
           </CardHeader>
           <CardContent>
-            <MiniTrend data={trendData} height={200} />
+            <TrendArea data={trendData} height={220} />
           </CardContent>
         </Card>
         <Card>
@@ -92,6 +117,27 @@ export default async function ReportsPage({
               </div>
             ))}
             <Button variant="outline" className="w-full">New shared dashboard</Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle>Daily completion activity</CardTitle>
+            <p className="text-sm text-muted-foreground">Last 14 weeks across every workspace in {org.name}.</p>
+          </CardHeader>
+          <CardContent>
+            <CompletionHeatmap values={heatmapValues} weeks={14} />
+          </CardContent>
+        </Card>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Assignment funnel</CardTitle>
+            <p className="text-sm text-muted-foreground">Where learners drop off between assigned and completed.</p>
+          </CardHeader>
+          <CardContent>
+            <CompletionFunnel stages={funnelStages} />
           </CardContent>
         </Card>
       </div>

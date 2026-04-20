@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
-import { ArrowRight, FileCheck2, Plus } from "lucide-react";
+import { ArrowRight, FileCheck2, Plus, Workflow } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Sankey, type SankeyLink, type SankeyNode } from "@/components/charts/sankey";
 import { getCourseById, getOrgBySlug, getWorkspaceBySlug, surveys } from "@/lib/data";
 
 export default async function SurveysPage({
@@ -28,8 +29,37 @@ export default async function SurveysPage({
         actions={<Button><Plus className="h-4 w-4" /> New survey</Button>}
       />
 
-      {wsSurveys.map((s) => (
-        <Card key={s.id}>
+      {wsSurveys.map((s) => {
+        // Build a Sankey flow: question → chosen answer → triggered course.
+        // Value is a plausible mock of learners who selected each answer.
+        const nodes: SankeyNode[] = [];
+        const links: SankeyLink[] = [];
+        s.questions.forEach((q, qi) => {
+          const qId = `q_${q.id}`;
+          nodes.push({ id: qId, label: `Q${qi + 1}`, column: 0, color: "#3d66ff" });
+          q.options.forEach((o, oi) => {
+            const oId = `${q.id}_${o.id}`;
+            nodes.push({
+              id: oId,
+              label: `${q.options[oi].label}`,
+              column: 1,
+              color: o.id === "y" ? "#34d399" : "#94a3b8",
+            });
+            const answerVolume = o.id === "y" ? 420 - qi * 50 : 180 + qi * 40;
+            links.push({ from: qId, to: oId, value: answerVolume });
+            if (o.triggersCourseId) {
+              const course = getCourseById(o.triggersCourseId);
+              const cId = `c_${o.triggersCourseId}`;
+              if (!nodes.find((n) => n.id === cId)) {
+                nodes.push({ id: cId, label: course?.title ?? "Course", column: 2, color: "#a78bfa" });
+              }
+              links.push({ from: oId, to: cId, value: answerVolume });
+            }
+          });
+        });
+
+        return (
+          <Card key={s.id}>
           <CardHeader className="flex flex-row items-start justify-between">
             <div>
               <CardTitle>{s.title}</CardTitle>
@@ -55,6 +85,12 @@ export default async function SurveysPage({
                 </div>
               </div>
             ))}
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                <Workflow className="h-4 w-4 text-primary" /> Answers → triggered assignments
+              </div>
+              <Sankey nodes={nodes} links={links} height={220} />
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline">Schedule: {s.schedule.replace("_", " ")}</Badge>
               <Badge variant="outline">{s.published ? "Published" : "Draft"}</Badge>
@@ -64,7 +100,8 @@ export default async function SurveysPage({
             </div>
           </CardContent>
         </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }
