@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { AUTH_COOKIE, IMPERSONATION_COOKIE, defaultHome } from "@/lib/auth";
 import { getUserById } from "@/lib/data";
 
-export async function signInAs(userId: string) {
+export async function signInAs(formData: FormData) {
+  const userId = String(formData.get("userId") ?? "");
   const user = getUserById(userId);
   if (!user) throw new Error("User not found");
   const store = await cookies();
@@ -26,7 +27,8 @@ export async function signOut() {
   redirect("/sign-in");
 }
 
-export async function startImpersonation(targetUserId: string) {
+export async function startImpersonation(formData: FormData) {
+  const targetUserId = String(formData.get("targetUserId") ?? "");
   const store = await cookies();
   const actor = store.get(AUTH_COOKIE)?.value;
   if (!actor) throw new Error("Not signed in");

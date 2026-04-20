@@ -54,7 +54,8 @@ export default function ImpersonationPage() {
         </CardHeader>
         <CardContent className="grid gap-2 sm:grid-cols-2">
           {impersonable.map((u) => (
-            <form key={u.id} action={startImpersonation.bind(null, u.id)}>
+            <form key={u.id} action={startImpersonation}>
+              <input type="hidden" name="targetUserId" value={u.id} />
               <Button type="submit" variant="outline" className="w-full justify-start">
                 <Avatar className="mr-2 h-6 w-6">
                   <AvatarFallback className="text-[10px]">{initials(u.name)}</AvatarFallback>

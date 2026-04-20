@@ -55,7 +55,8 @@ export default function SignInPage() {
 
         <div className="mx-auto mt-10 grid max-w-4xl gap-4 sm:grid-cols-2">
           {personas.map((p) => (
-            <form key={p.userId} action={signInAs.bind(null, p.userId)}>
+            <form key={p.userId} action={signInAs}>
+              <input type="hidden" name="userId" value={p.userId} />
               <button
                 type="submit"
                 className={`group relative w-full overflow-hidden rounded-2xl border bg-gradient-to-br ${

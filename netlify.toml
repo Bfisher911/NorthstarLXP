@@ -1,0 +1,17 @@
+# Northstar LXP — Netlify build config
+#
+# Explicit config for Next.js 15 + React 19. The @netlify/plugin-nextjs runtime
+# is required for App Router, Server Actions, and dynamic routes. Without it
+# Netlify may fall back to a static-only build and dynamic pages 404.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  # Pin the Node version to match local tooling and the Next 15 + React 19 deps.
+  NODE_VERSION = "20"
+  NEXT_TELEMETRY_DISABLED = "1"
