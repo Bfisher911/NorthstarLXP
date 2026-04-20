@@ -68,8 +68,11 @@ export default async function WorkspaceLayout({
     <AppShell
       groups={groups}
       user={{ id: user.id, name: user.name, email: user.email }}
+      role="workspace_admin"
       roleLabel="Workspace Admin"
       scopeLabel={`${ws.emoji} ${ws.name}`}
+      orgId={org.id}
+      orgSlug={org.slug}
       impersonating={!!impersonating}
     >
       {children}

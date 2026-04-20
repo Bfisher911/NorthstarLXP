@@ -21,7 +21,9 @@ export default async function LearnerLayout({ children }: { children: React.Reac
     <AppShell
       groups={groups}
       user={{ id: user.id, name: user.name, email: user.email }}
+      role="learner"
       roleLabel="Learner"
+      orgId={user.orgId}
       impersonating={!!impersonating}
     >
       {children}

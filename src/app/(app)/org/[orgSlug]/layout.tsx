@@ -56,8 +56,11 @@ export default async function OrgLayout({
     <AppShell
       groups={groups}
       user={{ id: user.id, name: user.name, email: user.email }}
+      role="org_admin"
       roleLabel="Org Admin"
       scopeLabel={org.name}
+      orgId={org.id}
+      orgSlug={org.slug}
       impersonating={!!impersonating}
     >
       {children}

@@ -19,8 +19,10 @@ export default async function ManagerLayout({ children }: { children: React.Reac
     <AppShell
       groups={groups}
       user={{ id: user.id, name: user.name, email: user.email }}
+      role="manager"
       roleLabel="Manager"
       scopeLabel="Team"
+      orgId={user.orgId}
       impersonating={!!impersonating}
     >
       {children}

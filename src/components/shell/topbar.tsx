@@ -1,10 +1,9 @@
 "use client";
 
-import { Bell, Eye, LogOut, Moon, Search, Sun, UserCog } from "lucide-react";
+import { Bell, LogOut, Moon, Search, Sun, UserCog } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownContent,
   DropdownItem,
@@ -15,7 +14,8 @@ import {
 } from "@/components/ui/dropdown";
 import { initials } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
-import { signOut, stopImpersonation } from "@/app/actions/session";
+import { signOut } from "@/app/actions/session";
+import { useCommandPalette } from "@/components/shell/command-palette";
 
 export function Topbar({
   user,
@@ -29,34 +29,25 @@ export function Topbar({
   impersonating?: boolean;
 }) {
   const { theme, toggle } = useTheme();
+  const palette = useCommandPalette();
+
+  void impersonating; // banner is rendered in AppShell now
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/75 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex flex-1 items-center gap-2">
-        <div className="relative w-full max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Search courses, paths, learners, certificates…"
-          />
-          <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground md:inline">
+        <button
+          type="button"
+          onClick={() => palette?.open()}
+          className="group relative inline-flex h-9 w-full max-w-sm items-center gap-2 rounded-md border bg-background px-3 text-left text-sm text-muted-foreground shadow-sm transition hover:border-primary/40 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <Search className="h-4 w-4 shrink-0" />
+          <span className="truncate">Jump to anything…</span>
+          <kbd className="ml-auto hidden rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground md:inline">
             ⌘K
           </kbd>
-        </div>
+        </button>
       </div>
-      {impersonating && (
-        <form action={stopImpersonation}>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 border-amber-400 bg-amber-50 text-amber-800 shadow-sm dark:bg-amber-500/10 dark:text-amber-300"
-          >
-            <Eye className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Impersonating ·</span>
-            Exit
-          </Button>
-        </form>
-      )}
       <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
         {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </Button>

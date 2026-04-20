@@ -40,6 +40,7 @@ export default async function SuperAdminLayout({ children }: { children: React.R
     <AppShell
       groups={groups}
       user={{ id: user.id, name: user.name, email: user.email }}
+      role="super_admin"
       roleLabel="Super Admin"
       scopeLabel="Platform"
       impersonating={!!impersonating}
