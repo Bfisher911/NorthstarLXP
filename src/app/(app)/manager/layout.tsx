@@ -1,10 +1,12 @@
 import { Bell, Home, ShieldCheck, Users } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import type { NavGroup } from "@/components/shell/sidebar";
-import { requireSession } from "@/lib/auth";
+import { canManageAsManager, requireSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export default async function ManagerLayout({ children }: { children: React.ReactNode }) {
   const { user, impersonating } = await requireSession();
+  if (!canManageAsManager(user)) redirect("/learner");
   const groups: NavGroup[] = [
     {
       items: [

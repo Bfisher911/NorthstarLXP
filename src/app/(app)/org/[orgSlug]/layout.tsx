@@ -12,8 +12,9 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import type { NavGroup } from "@/components/shell/sidebar";
-import { requireSession } from "@/lib/auth";
+import { canAccessOrg, requireSession } from "@/lib/auth";
 import { getOrgBySlug } from "@/lib/data";
+import { redirect } from "next/navigation";
 
 export default async function OrgLayout({
   children,
@@ -26,6 +27,9 @@ export default async function OrgLayout({
   const org = getOrgBySlug(orgSlug);
   if (!org) notFound();
   const { user, impersonating } = await requireSession();
+  if (!canAccessOrg(user, org.id)) {
+    redirect("/learner");
+  }
 
   const base = `/org/${orgSlug}`;
   const groups: NavGroup[] = [

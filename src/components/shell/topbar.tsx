@@ -1,7 +1,7 @@
 "use client";
 
 import { Bell, LogOut, Moon, Search, Sun, UserCog } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { PersonAvatar } from "@/components/ui/person-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,6 @@ import {
   DropdownSeparator,
   DropdownTrigger,
 } from "@/components/ui/dropdown";
-import { initials } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
 import { signOut } from "@/app/actions/session";
 import { useCommandPalette } from "@/components/shell/command-palette";
@@ -96,9 +95,7 @@ export function Topbar({
       <DropdownRoot>
         <DropdownTrigger asChild>
           <button className="flex items-center gap-2 rounded-full border bg-card px-1.5 py-1 pr-3 text-left transition hover:bg-accent">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback>{initials(user.name)}</AvatarFallback>
-            </Avatar>
+            <PersonAvatar name={user.name} seed={user.id} size={32} />
             <div className="hidden sm:block">
               <div className="text-sm font-medium leading-none">{user.name}</div>
               <div className="mt-0.5 text-[10px] text-muted-foreground">

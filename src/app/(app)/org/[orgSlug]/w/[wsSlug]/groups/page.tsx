@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
-import { Plus, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { getOrgBySlug, getWorkspaceBySlug, smartGroups } from "@/lib/data";
+import { SmartGroupBuilder } from "@/components/people/smart-group-builder";
+import { getOrgBySlug, getWorkspaceBySlug, smartGroups, users } from "@/lib/data";
 
 export default async function GroupsPage({
   params,
@@ -17,6 +17,7 @@ export default async function GroupsPage({
   const ws = getWorkspaceBySlug(org.id, wsSlug);
   if (!ws) notFound();
   const groups = smartGroups.filter((g) => !g.workspaceId || g.workspaceId === ws.id);
+  const orgUsers = users.filter((u) => u.orgId === org.id);
 
   return (
     <div className="space-y-6">
@@ -24,7 +25,7 @@ export default async function GroupsPage({
         eyebrow={<span className="inline-flex items-center gap-1"><Users className="h-3 w-3" /> Smart groups</span>}
         title="Reusable audiences"
         description="Define an audience once with rules — re-use it across assignments, notifications, and reports."
-        actions={<Button><Plus className="h-4 w-4" /> New group</Button>}
+        actions={<SmartGroupBuilder orgId={org.id} workspaceId={ws.id} candidates={orgUsers} />}
       />
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -45,7 +46,6 @@ export default async function GroupsPage({
               </div>
               <div className="flex items-center justify-between pt-2 text-xs">
                 <span className="text-muted-foreground">{g.memberCount} members</span>
-                <Button variant="outline" size="sm">Preview members</Button>
               </div>
             </CardContent>
           </Card>

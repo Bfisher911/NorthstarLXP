@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import type { NavGroup } from "@/components/shell/sidebar";
-import { requireSession } from "@/lib/auth";
+import { canAccessWorkspace, requireSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import {
   getAiSuggestionsForWorkspace,
   getOrgBySlug,
@@ -33,6 +34,9 @@ export default async function WorkspaceLayout({
   const ws = getWorkspaceBySlug(org.id, wsSlug);
   if (!ws) notFound();
   const { user, impersonating } = await requireSession();
+  if (!canAccessWorkspace(user, org.id, ws.id)) {
+    redirect(`/org/${org.slug}`);
+  }
 
   const base = `/org/${orgSlug}/w/${wsSlug}`;
   const ai = getAiSuggestionsForWorkspace(ws.id).filter((s) => s.status === "pending").length;
