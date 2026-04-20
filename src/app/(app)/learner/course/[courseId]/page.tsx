@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { requireSession } from "@/lib/auth";
 import { getAssignmentsForUser, getCourseById } from "@/lib/data";
+import { AttestForm } from "@/components/learner/attest-form";
 import { formatDate } from "@/lib/utils";
 import type { CourseModule } from "@/lib/types";
 
@@ -134,7 +135,12 @@ export default async function CoursePage({
                     <Download className="h-3.5 w-3.5" /> Download
                   </Button>
                 </div>
-                <AttestForm />
+                <AttestForm
+                  statements={[
+                    "I have read the Code of Conduct and I understand my responsibilities as a workforce member.",
+                    "I understand that failure to comply may result in corrective action up to and including termination.",
+                  ]}
+                />
               </CardContent>
             </Card>
           )}
@@ -293,22 +299,3 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
   );
 }
 
-function AttestForm() {
-  return (
-    <form className="space-y-3 rounded-lg border p-4">
-      <label className="flex items-start gap-3 text-sm">
-        <input type="checkbox" className="mt-1 h-4 w-4" />
-        <span>
-          I have read the Code of Conduct and I understand my responsibilities as a workforce member.
-        </span>
-      </label>
-      <label className="flex items-start gap-3 text-sm">
-        <input type="checkbox" className="mt-1 h-4 w-4" />
-        <span>
-          I understand that failure to comply may result in corrective action up to and including termination.
-        </span>
-      </label>
-      <Button>Submit attestation</Button>
-    </form>
-  );
-}

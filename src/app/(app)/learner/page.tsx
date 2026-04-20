@@ -10,13 +10,14 @@ import {
   Sparkles,
   TrendingUp,
 } from "lucide-react";
-import { PageHeader } from "@/components/shell/page-header";
 import { KpiCard } from "@/components/shell/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { JourneyMap } from "@/components/path/journey-map";
+import { StatRing } from "@/components/ui/stat-ring";
+import { StatusChip } from "@/components/ui/status-chip";
 import { requireSession } from "@/lib/auth";
 import {
   getAssignmentsForUser,
@@ -49,29 +50,50 @@ export default async function LearnerDashboard() {
           (assignments.reduce((s, a) => s + a.progress, 0) / assignments.length) * 100
         );
 
+  const nextUp = due[0];
+  const nextUpCourse = nextUp?.courseId ? getCourseById(nextUp.courseId) : null;
+
   return (
     <div className="space-y-8">
-      <PageHeader
-        eyebrow={
-          <span className="inline-flex items-center gap-1">
-            <Sparkles className="h-3 w-3" /> Welcome back
-          </span>
-        }
-        title={`Hi ${user.name.split(" ")[0]} — your journey is 68% complete`}
-        description="Your required Clinical New Hire Journey is mapped out below. Start where you left off, or explore optional development."
-        actions={
-          <>
-            <Button variant="outline" asChild>
-              <Link href="/learner/training">View all training</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/learner/journey">
-                <Compass className="h-4 w-4" /> Open journey
-              </Link>
-            </Button>
-          </>
-        }
-      />
+      {/* Hero */}
+      <section className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-northstar-500/10 via-background to-background p-6 sm:p-8">
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-star-field opacity-40" />
+        <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-northstar-500/20 blur-3xl" />
+        <div className="relative grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+            <Badge variant="outline" className="mb-3 border-northstar-400/40 bg-northstar-500/10 text-northstar-700 dark:text-northstar-200">
+              <Sparkles className="h-3 w-3" /> Welcome back
+            </Badge>
+            <h1 className="font-display text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+              Hi {user.name.split(" ")[0]} — your journey is {totalProgress}% complete
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+              Your required {path.name} is mapped below. Start where you left off, or explore optional development.
+            </p>
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              {nextUpCourse && (
+                <Button asChild>
+                  <Link href={`/learner/course/${nextUpCourse.id}`}>
+                    {nextUp?.status === "in_progress" ? "Continue" : "Start"}: {nextUpCourse.title}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              )}
+              <Button variant="outline" asChild>
+                <Link href="/learner/journey">
+                  <Compass className="h-4 w-4" /> Open journey map
+                </Link>
+              </Button>
+              <Button variant="ghost" asChild>
+                <Link href="/learner/training">All training</Link>
+              </Button>
+            </div>
+          </div>
+          <div className="flex items-center gap-5">
+            <StatRing value={totalProgress / 100} size={140} stroke={12} sublabel="Journey" tone="primary" />
+          </div>
+        </div>
+      </section>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <KpiCard
@@ -173,13 +195,7 @@ export default async function LearnerDashboard() {
                     <Progress value={a.progress * 100} className="mt-2 h-1.5" />
                   </div>
                   <div className="text-right">
-                    {a.status === "overdue" ? (
-                      <Badge variant="destructive">Overdue</Badge>
-                    ) : a.status === "in_progress" ? (
-                      <Badge variant="info">In progress</Badge>
-                    ) : (
-                      <Badge variant="outline">Start</Badge>
-                    )}
+                    <StatusChip status={a.status} />
                     <div className="mt-2 text-right opacity-0 transition group-hover:opacity-100">
                       <ArrowRight className="inline h-4 w-4 text-primary" />
                     </div>

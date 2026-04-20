@@ -29,9 +29,13 @@ export function Sidebar({
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col border-r bg-card/60 backdrop-blur">
-      <div className="flex h-16 items-center border-b px-5">{header}</div>
-      <nav className="flex-1 overflow-y-auto scrollbar-thin px-3 py-4">
+    <aside className="relative flex h-screen w-64 shrink-0 flex-col border-r bg-card/70 backdrop-blur">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-primary/8 to-transparent"
+      />
+      <div className="relative flex h-16 items-center border-b px-5">{header}</div>
+      <nav className="relative flex-1 overflow-y-auto scrollbar-thin px-3 py-4">
         {groups.map((group, gi) => (
           <div key={gi} className="mb-5">
             {group.label && (
@@ -49,20 +53,27 @@ export function Sidebar({
                     <Link
                       href={item.href}
                       className={cn(
-                        "group relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
+                        "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-all duration-200",
                         active
-                          ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                          ? "bg-gradient-to-r from-primary/15 via-primary/10 to-transparent text-primary shadow-sm"
+                          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                       )}
                     >
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center [&_svg]:h-4 [&_svg]:w-4">{item.icon}</span>
+                      <span
+                        className={cn(
+                          "flex h-4 w-4 shrink-0 items-center justify-center transition-transform [&_svg]:h-4 [&_svg]:w-4",
+                          active ? "scale-110" : "group-hover:scale-105"
+                        )}
+                      >
+                        {item.icon}
+                      </span>
                       <span className="truncate">{item.title}</span>
                       {item.badge !== undefined && (
                         <span
                           className={cn(
                             "ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
                             active
-                              ? "bg-primary/20 text-primary"
+                              ? "bg-primary/25 text-primary"
                               : "bg-muted text-muted-foreground"
                           )}
                         >
@@ -72,7 +83,7 @@ export function Sidebar({
                       {active && (
                         <span
                           aria-hidden
-                          className="absolute inset-y-1 left-0 w-1 rounded-r-full bg-primary"
+                          className="absolute inset-y-1.5 left-0 w-1 rounded-r-full bg-gradient-to-b from-primary to-primary/60"
                         />
                       )}
                     </Link>

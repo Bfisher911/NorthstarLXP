@@ -176,7 +176,7 @@ export default async function OrgOverviewPage({
             <Link
               key={w.id}
               href={`/org/${orgSlug}/w/${w.slug}`}
-              className="group relative overflow-hidden rounded-2xl border bg-gradient-to-br from-card to-card/50 p-5 transition hover:border-primary/50 hover:shadow-lg"
+              className="group relative overflow-hidden rounded-2xl border bg-gradient-to-br from-card to-card/50 p-5 card-hover"
             >
               <div className="flex items-start gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-northstar-500/20 to-northstar-500/5 text-2xl ring-1 ring-inset ring-northstar-500/20">

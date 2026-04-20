@@ -31,7 +31,7 @@ export default async function WorkspacesIndexPage({
         {ws.map((w) => {
           const lead = getUserById(w.lead);
           return (
-            <Card key={w.id} className="group overflow-hidden transition hover:border-primary/50 hover:shadow-md">
+            <Card key={w.id} className="group overflow-hidden card-hover">
               <CardContent className="p-5">
                 <div className="flex items-start gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-2xl ring-1 ring-primary/15">

@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { ArrowRight, Clock, Filter } from "lucide-react";
+import { ArrowRight, Clock } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { StatusChip } from "@/components/ui/status-chip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requireSession } from "@/lib/auth";
 import { getAssignmentsForUser, getCourseById } from "@/lib/data";
@@ -26,11 +26,6 @@ export default async function TrainingPage() {
         eyebrow="My training"
         title="Your assignments"
         description="Everything assigned to you — by due date and source. You can see exactly why each item was assigned."
-        actions={
-          <Button variant="outline">
-            <Filter className="h-4 w-4" /> Filter
-          </Button>
-        }
       />
 
       <Tabs defaultValue="due">
@@ -75,7 +70,10 @@ export default async function TrainingPage() {
                       </div>
                       {key !== "completed" && <Progress value={a.progress * 100} className="mt-2 h-1.5" />}
                     </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:text-primary" />
+                    <div className="flex items-center gap-3">
+                      <StatusChip status={a.status} />
+                      <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:text-primary" />
+                    </div>
                   </Link>
                 );
               })}

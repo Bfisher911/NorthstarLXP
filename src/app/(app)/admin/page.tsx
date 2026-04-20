@@ -16,6 +16,7 @@ import { KpiCard } from "@/components/shell/kpi-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatRing } from "@/components/ui/stat-ring";
 import { MiniTrend } from "@/components/charts/mini-trend";
 import { organizations, workspaces } from "@/lib/data";
 import { formatPct } from "@/lib/utils";
@@ -101,7 +102,12 @@ export default function SuperAdminDashboard() {
             </Badge>
           </CardHeader>
           <CardContent>
-            <MiniTrend data={trendData} height={180} />
+            <div className="grid gap-6 md:grid-cols-[auto_1fr] md:items-center">
+              <div className="flex items-center justify-center">
+                <StatRing value={avgHealth} size={132} stroke={12} sublabel="Platform" tone="emerald" />
+              </div>
+              <MiniTrend data={trendData} height={160} />
+            </div>
           </CardContent>
         </Card>
 
@@ -155,7 +161,7 @@ export default function SuperAdminDashboard() {
           {organizations.map((org) => {
             const wsCount = workspaces.filter((w) => w.orgId === org.id).length;
             return (
-              <Card key={org.id} className="group overflow-hidden transition hover:border-primary/60 hover:shadow-md">
+              <Card key={org.id} className="group overflow-hidden card-hover">
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <div
