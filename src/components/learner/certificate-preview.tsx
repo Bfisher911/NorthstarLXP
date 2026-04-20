@@ -4,6 +4,7 @@ import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Award, Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/utils";
 
 /**
@@ -30,6 +31,124 @@ export function CertificatePreview({
   orgName?: string;
   signedBy?: string;
 }) {
+  const { toast } = useToast();
+  const [downloading, setDownloading] = React.useState(false);
+
+  const downloadPdf = async () => {
+    setDownloading(true);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
+      const w = doc.internal.pageSize.getWidth();
+      const h = doc.internal.pageSize.getHeight();
+
+      // Outer border
+      doc.setDrawColor("#f59e0b");
+      doc.setLineWidth(2);
+      doc.roundedRect(28, 28, w - 56, h - 56, 12, 12);
+
+      // Inner hairline
+      doc.setDrawColor("#e5b8a3");
+      doc.setLineWidth(0.6);
+      doc.roundedRect(38, 38, w - 76, h - 76, 8, 8);
+
+      // Header label
+      doc.setTextColor("#b45309");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("CERTIFICATE OF COMPLETION", w / 2, 88, { align: "center" });
+
+      // Award ribbon dot
+      doc.setDrawColor("#f59e0b");
+      doc.setFillColor("#f59e0b");
+      doc.circle(w / 2, 118, 14, "F");
+      doc.setTextColor("#ffffff");
+      doc.setFontSize(14);
+      doc.text("★", w / 2, 123, { align: "center" });
+
+      // "This certifies that"
+      doc.setTextColor("#475569");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.text("This certifies that", w / 2, 170, { align: "center" });
+
+      // Recipient
+      doc.setTextColor("#0f172a");
+      doc.setFont("times", "bold");
+      doc.setFontSize(32);
+      doc.text(recipient, w / 2, 210, { align: "center" });
+
+      // Divider
+      doc.setDrawColor("#f59e0b");
+      doc.setLineWidth(1);
+      doc.line(w / 2 - 60, 228, w / 2 + 60, 228);
+
+      // has completed
+      doc.setTextColor("#475569");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.text("has successfully completed", w / 2, 256, { align: "center" });
+
+      // Course title
+      doc.setTextColor("#0f172a");
+      doc.setFont("times", "bold");
+      doc.setFontSize(22);
+      doc.text(courseTitle, w / 2, 290, { align: "center", maxWidth: w - 200 });
+
+      // Trio of facts
+      doc.setTextColor("#475569");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      const rowY = 360;
+      const cellW = (w - 160) / 3;
+      const rowX = 80;
+      doc.text("ISSUED", rowX + cellW * 0 + cellW / 2, rowY, { align: "center" });
+      doc.text("CREDENTIAL", rowX + cellW * 1 + cellW / 2, rowY, { align: "center" });
+      doc.text("VALID THROUGH", rowX + cellW * 2 + cellW / 2, rowY, { align: "center" });
+      doc.setTextColor("#0f172a");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(formatDate(issuedAt), rowX + cellW * 0 + cellW / 2, rowY + 18, { align: "center" });
+      doc.text(credentialCode, rowX + cellW * 1 + cellW / 2, rowY + 18, { align: "center" });
+      doc.text(expiresAt ? formatDate(expiresAt) : "—", rowX + cellW * 2 + cellW / 2, rowY + 18, {
+        align: "center",
+      });
+
+      // Signature + issuer
+      doc.setFont("times", "italic");
+      doc.setFontSize(18);
+      doc.setTextColor("#0f172a");
+      doc.text(signedBy.split(",")[0], 100, h - 90);
+      doc.setDrawColor("#94a3b8");
+      doc.line(100, h - 80, 260, h - 80);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor("#475569");
+      doc.text(signedBy, 100, h - 68);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor("#0f172a");
+      doc.text(orgName, w - 100, h - 80, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor("#475569");
+      doc.text("Issuing authority", w - 100, h - 68, { align: "right" });
+
+      doc.save(`${recipient.replace(/\s+/g, "-").toLowerCase()}-${credentialCode}.pdf`);
+      toast({
+        title: "Certificate downloaded",
+        description: `${credentialCode}.pdf is in your downloads folder.`,
+        variant: "success",
+      });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Download failed", description: String(err), variant: "error" });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <Dialog.Root>
       <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>
@@ -39,8 +158,8 @@ export function CertificatePreview({
           <div className="flex items-center justify-between border-b p-3">
             <Dialog.Title className="text-sm font-semibold">Certificate preview</Dialog.Title>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline">
-                <Download className="h-3.5 w-3.5" /> Download PDF
+              <Button size="sm" variant="outline" onClick={downloadPdf} disabled={downloading}>
+                <Download className="h-3.5 w-3.5" /> {downloading ? "Rendering…" : "Download PDF"}
               </Button>
               <Dialog.Close className="rounded p-1 text-muted-foreground hover:bg-muted">
                 <X className="h-4 w-4" />

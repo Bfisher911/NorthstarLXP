@@ -10,7 +10,6 @@ import {
   Edit3,
   FileText,
   HelpCircle,
-  Send,
   Users,
 } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
@@ -18,12 +17,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AssignCourseDialog } from "@/components/course/assign-course-dialog";
 import {
   assignments as allAssignments,
   getCourseById,
   getOrgBySlug,
   getUserById,
   getWorkspaceBySlug,
+  users as allUsers,
 } from "@/lib/data";
 import { formatDate, relativeDate } from "@/lib/utils";
 
@@ -82,9 +83,20 @@ export default async function WsCourseDetail({
             <Edit3 className="h-4 w-4" /> Open in builder
           </Link>
         </Button>
-        <Button variant="outline">
-          <Send className="h-4 w-4" /> Assign
-        </Button>
+        <AssignCourseDialog
+          courseId={course.id}
+          courseTitle={course.title}
+          triggerVariant="outline"
+          candidates={allUsers
+            .filter((u) => u.orgId === org.id && u.roles.some((r) => r.role === "learner"))
+            .map((u) => ({
+              id: u.id,
+              name: u.name,
+              email: u.email,
+              title: u.employee?.title,
+              department: u.employee?.department,
+            }))}
+        />
         <Button variant="outline">
           <Copy className="h-4 w-4" /> Duplicate
         </Button>

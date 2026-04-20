@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { TeamReminderButton } from "@/components/manager/team-reminder-button";
 import { requireSession } from "@/lib/auth";
 import {
   assignments as allAssignments,
@@ -63,11 +64,7 @@ export default async function ManagerDashboard() {
         }
         title={`Team overview · ${team.length} direct reports`}
         description={`You're ${user.employee?.title ?? "manager"} for a team of ${team.length}. Track their learning and send reminders without leaving the page.`}
-        actions={
-          <Button>
-            <BellRing className="h-4 w-4" /> Send team reminder
-          </Button>
-        }
+        actions={<TeamReminderButton userIds={team.map((t) => t.id)} />}
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

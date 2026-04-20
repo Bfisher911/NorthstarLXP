@@ -9,17 +9,26 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { BulkToolbar } from "@/components/ui/bulk-toolbar";
+import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/toast";
 import { cn, initials } from "@/lib/utils";
 import type { UserRecord } from "@/lib/types";
 
 type Facet = "all" | "admin" | "manager" | "learner";
 
+const PAGE_SIZE = 25;
+
 export function PeopleDirectory({ users }: { users: UserRecord[] }) {
   const [query, setQuery] = React.useState("");
   const [facet, setFacet] = React.useState<Facet>("all");
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const [page, setPage] = React.useState(0);
   const { toast } = useToast();
+
+  // Reset page whenever filters change so results are never off-screen.
+  React.useEffect(() => {
+    setPage(0);
+  }, [query, facet]);
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -63,6 +72,8 @@ export function PeopleDirectory({ users }: { users: UserRecord[] }) {
       );
     });
   }, [users, query, facet]);
+
+  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <div className="space-y-4">
@@ -112,12 +123,16 @@ export function PeopleDirectory({ users }: { users: UserRecord[] }) {
                       type="checkbox"
                       aria-label="Select all"
                       className="h-3.5 w-3.5 accent-primary"
-                      checked={filtered.length > 0 && filtered.every((u) => selected.has(u.id))}
+                      checked={paged.length > 0 && paged.every((u) => selected.has(u.id))}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelected(new Set(filtered.map((u) => u.id)));
+                          const next = new Set(selected);
+                          paged.forEach((u) => next.add(u.id));
+                          setSelected(next);
                         } else {
-                          clearSelection();
+                          const next = new Set(selected);
+                          paged.forEach((u) => next.delete(u.id));
+                          setSelected(next);
                         }
                       }}
                     />
@@ -130,7 +145,7 @@ export function PeopleDirectory({ users }: { users: UserRecord[] }) {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {filtered.map((u) => (
+                {paged.map((u) => (
                   <tr
                     key={u.id}
                     className={cn(
@@ -186,6 +201,7 @@ export function PeopleDirectory({ users }: { users: UserRecord[] }) {
           </CardContent>
         </Card>
       )}
+      <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onChange={setPage} />
       <BulkToolbar count={selected.size} onClear={clearSelection}>
         <Button size="sm" onClick={() => runAction("Assignment")}>
           <Send className="h-3.5 w-3.5" /> Assign training
