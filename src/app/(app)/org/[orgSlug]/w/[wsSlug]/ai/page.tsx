@@ -3,8 +3,8 @@ import { Brain } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { AiReviewQueue } from "@/components/ai/ai-review-queue";
+import { GroomingButton } from "@/components/ai/grooming-button";
 import {
   aiSuggestions,
   getCourseById,
@@ -49,7 +49,7 @@ export default async function AiReviewPage({
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Badge variant="secondary">{pending.length} pending</Badge>
-            <Button variant="outline">Run grooming job</Button>
+            <GroomingButton orgId={org.id} workspaceId={ws.id} />
           </div>
         </CardContent>
       </Card>

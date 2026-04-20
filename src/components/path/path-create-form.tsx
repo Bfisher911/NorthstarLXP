@@ -2,19 +2,26 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/components/ui/toast";
+import { createPath } from "@/app/actions/mutations";
 
 export function PathCreateForm({
   backHref,
+  orgId,
+  workspaceId,
   defaultName = "",
   defaultAudience = "",
 }: {
   backHref: string;
+  orgId: string;
+  workspaceId?: string;
   defaultName?: string;
   defaultAudience?: string;
 }) {
@@ -23,6 +30,10 @@ export function PathCreateForm({
   const [required, setRequired] = React.useState(true);
   const [credential, setCredential] = React.useState(true);
   const [saved, setSaved] = React.useState(false);
+  const [pending, startTransition] = React.useTransition();
+  const [createdId, setCreatedId] = React.useState<string | null>(null);
+  const { toast } = useToast();
+  const router = useRouter();
 
   if (saved) {
     return (
@@ -40,10 +51,15 @@ export function PathCreateForm({
             <Button variant="outline" onClick={() => setSaved(false)}>
               Edit details
             </Button>
-            <Button asChild>
-              <Link href={backHref}>
-                Back to paths <ArrowRight className="h-4 w-4" />
-              </Link>
+            {createdId && (
+              <Button asChild>
+                <Link href={`${backHref}/${createdId}/edit`}>
+                  Open builder <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            )}
+            <Button variant="outline" asChild>
+              <Link href={backHref}>Back to paths</Link>
             </Button>
           </div>
         </CardContent>
@@ -61,7 +77,26 @@ export function PathCreateForm({
           onSubmit={(e) => {
             e.preventDefault();
             if (!name.trim()) return;
-            setSaved(true);
+            const fd = new FormData();
+            fd.set("orgId", orgId);
+            if (workspaceId) fd.set("workspaceId", workspaceId);
+            fd.set("name", name);
+            fd.set("audience", audience);
+            if (required) fd.set("required", "on");
+            if (credential) fd.set("credentialOnComplete", "on");
+            startTransition(async () => {
+              const res = await createPath(fd);
+              if (res.ok) {
+                setCreatedId(res.id);
+                setSaved(true);
+                toast({
+                  title: "Path created",
+                  description: `${name} — ready to lay out in the builder.`,
+                  variant: "success",
+                });
+                router.refresh();
+              }
+            });
           }}
           className="space-y-4"
         >
@@ -102,8 +137,8 @@ export function PathCreateForm({
             <Button type="button" variant="ghost" asChild>
               <Link href={backHref}>Cancel</Link>
             </Button>
-            <Button type="submit" disabled={!name.trim()}>
-              Create and open builder <ArrowRight className="h-4 w-4" />
+            <Button type="submit" disabled={!name.trim() || pending}>
+              {pending ? "Creating…" : "Create and open builder"} <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         </form>

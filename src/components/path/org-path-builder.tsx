@@ -2,12 +2,15 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, Compass, Plus, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toast";
+import { createPath } from "@/app/actions/mutations";
 import { cn } from "@/lib/utils";
 
 export interface CatalogCourse {
@@ -23,15 +26,21 @@ export interface CatalogCourse {
 export function OrgPathBuilder({
   catalog,
   backHref,
+  orgId,
 }: {
   catalog: CatalogCourse[];
   backHref: string;
+  orgId: string;
 }) {
   const [name, setName] = React.useState("");
   const [audience, setAudience] = React.useState("");
   const [credential, setCredential] = React.useState("");
   const [selected, setSelected] = React.useState<string[]>([]);
   const [saved, setSaved] = React.useState(false);
+  const [createdId, setCreatedId] = React.useState<string | null>(null);
+  const [pending, startTransition] = React.useTransition();
+  const { toast } = useToast();
+  const router = useRouter();
 
   const selectedCourses = selected
     .map((id) => catalog.find((c) => c.id === id))
@@ -59,10 +68,15 @@ export function OrgPathBuilder({
             <Button variant="outline" onClick={() => setSaved(false)}>
               Edit details
             </Button>
-            <Button asChild>
-              <Link href={backHref}>
-                Back to paths <ArrowRight className="h-4 w-4" />
-              </Link>
+            {createdId && (
+              <Button asChild>
+                <Link href={`${backHref}/${createdId}`}>
+                  Open path <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            )}
+            <Button variant="outline" asChild>
+              <Link href={backHref}>Back to paths</Link>
             </Button>
           </div>
         </CardContent>
@@ -81,7 +95,25 @@ export function OrgPathBuilder({
             onSubmit={(e) => {
               e.preventDefault();
               if (!name.trim() || selected.length === 0) return;
-              setSaved(true);
+              const fd = new FormData();
+              fd.set("orgId", orgId);
+              fd.set("name", name);
+              fd.set("audience", audience);
+              fd.set("required", "on");
+              fd.set("credentialOnComplete", "on");
+              startTransition(async () => {
+                const res = await createPath(fd);
+                if (res.ok) {
+                  setCreatedId(res.id);
+                  setSaved(true);
+                  toast({
+                    title: "Org path created",
+                    description: `${selected.length} courses attached. Opening builder…`,
+                    variant: "success",
+                  });
+                  router.refresh();
+                }
+              });
             }}
             className="space-y-3"
           >
@@ -143,8 +175,8 @@ export function OrgPathBuilder({
               )}
             </div>
 
-            <Button className="w-full" type="submit" disabled={!name.trim() || selected.length === 0}>
-              Create and open builder <ArrowRight className="h-4 w-4" />
+            <Button className="w-full" type="submit" disabled={!name.trim() || selected.length === 0 || pending}>
+              {pending ? "Creating…" : "Create and open builder"} <ArrowRight className="h-4 w-4" />
             </Button>
           </form>
         </CardContent>

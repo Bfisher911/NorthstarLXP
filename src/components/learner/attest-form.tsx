@@ -1,24 +1,34 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, PenLine, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
+import { signAttestation } from "@/app/actions/mutations";
 import { cn } from "@/lib/utils";
 
 export function AttestForm({
   statements,
   signaturePrompt = "Type your full name to sign",
+  userId,
+  courseId,
 }: {
   statements: string[];
   signaturePrompt?: string;
+  userId?: string;
+  courseId?: string;
 }) {
   const [checks, setChecks] = React.useState<boolean[]>(statements.map(() => false));
   const [signature, setSignature] = React.useState("");
   const [submitted, setSubmitted] = React.useState(false);
+  const [pending, startTransition] = React.useTransition();
+  const { toast } = useToast();
+  const router = useRouter();
 
   const allChecked = checks.every(Boolean);
-  const canSubmit = allChecked && signature.trim().length >= 2;
+  const canSubmit = allChecked && signature.trim().length >= 2 && !pending;
 
   if (submitted) {
     return (
@@ -45,7 +55,26 @@ export function AttestForm({
       onSubmit={(e) => {
         e.preventDefault();
         if (!canSubmit) return;
-        setSubmitted(true);
+        if (userId && courseId) {
+          startTransition(async () => {
+            const res = await signAttestation({
+              userId,
+              courseId,
+              signature: signature.trim(),
+            });
+            if (res.ok) {
+              setSubmitted(true);
+              toast({
+                title: "Attestation recorded",
+                description: "A timestamped audit entry was created.",
+                variant: "success",
+              });
+              router.refresh();
+            }
+          });
+        } else {
+          setSubmitted(true);
+        }
       }}
     >
       <div className="flex items-center gap-2 text-sm font-medium">

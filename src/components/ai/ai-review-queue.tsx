@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Check, ChevronDown, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/toast";
+import { approveAiSuggestion, rejectAiSuggestion } from "@/app/actions/mutations";
 import { cn, initials, relativeDate } from "@/lib/utils";
 
 export interface AiReviewItem {
@@ -29,9 +31,12 @@ export function AiReviewQueue({ items }: { items: AiReviewItem[] }) {
   const [state, setState] = React.useState<Record<string, Decision>>({});
   const [expanded, setExpanded] = React.useState<string | null>(null);
   const { toast } = useToast();
+  const router = useRouter();
 
   const decide = (id: string, verdict: Decision, item: AiReviewItem) => {
     setState((prev) => ({ ...prev, [id]: verdict }));
+    const run = verdict === "approved" ? approveAiSuggestion : rejectAiSuggestion;
+    run({ suggestionId: id }).then(() => router.refresh());
     toast({
       title: verdict === "approved" ? "Assignment created" : "Suggestion dismissed",
       description:

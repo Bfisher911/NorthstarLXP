@@ -2,11 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, PlayCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Confetti } from "@/components/ui/confetti";
 import { useToast } from "@/components/ui/toast";
+import { completeCourse } from "@/app/actions/mutations";
 
 /**
  * Interactive progress + complete control for the course player page. Clicking
@@ -18,16 +20,22 @@ export function CoursePlayerControls({
   alreadyCompleted,
   courseTitle,
   nextUpHref,
+  userId,
+  courseId,
 }: {
   initialProgress: number; // 0-100
   alreadyCompleted?: boolean;
   courseTitle: string;
   nextUpHref?: string;
+  userId?: string;
+  courseId?: string;
 }) {
   const [progress, setProgress] = React.useState(initialProgress);
   const [completed, setCompleted] = React.useState(!!alreadyCompleted);
   const [fire, setFire] = React.useState(false);
+  const [pending, startTransition] = React.useTransition();
   const { toast } = useToast();
+  const router = useRouter();
 
   const advance = () => {
     setProgress((p) => {
@@ -40,6 +48,12 @@ export function CoursePlayerControls({
     setCompleted(true);
     setProgress(100);
     setFire(true);
+    if (userId && courseId) {
+      startTransition(async () => {
+        await completeCourse({ userId, courseId });
+        router.refresh();
+      });
+    }
     toast({
       title: "🎉 Course complete",
       description: `${courseTitle} — nice work. Credential awarded.`,
@@ -72,8 +86,8 @@ export function CoursePlayerControls({
           )}
         </div>
       ) : progress >= 100 ? (
-        <Button className="w-full" onClick={markComplete} size="lg">
-          <CheckCircle2 className="h-4 w-4" /> Mark complete
+        <Button className="w-full" onClick={markComplete} size="lg" disabled={pending}>
+          <CheckCircle2 className="h-4 w-4" /> {pending ? "Saving…" : "Mark complete"}
         </Button>
       ) : (
         <Button className="w-full" onClick={advance} size="lg">

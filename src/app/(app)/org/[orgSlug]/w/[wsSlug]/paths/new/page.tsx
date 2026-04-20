@@ -30,7 +30,7 @@ export default async function NewPathPage({
         title={`Create a path in ${ws.name}`}
         description="Create the shell, then lay out nodes in the visual journey builder."
       />
-      <PathCreateForm backHref={backHref} />
+      <PathCreateForm backHref={backHref} orgId={org.id} workspaceId={ws.id} />
     </div>
   );
 }

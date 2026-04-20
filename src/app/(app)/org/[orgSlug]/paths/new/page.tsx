@@ -38,7 +38,7 @@ export default async function NewOrgPathPage({
         title="Compose a master organizational learning path"
         description="Pick content shared from any workspace, then finalize it in the visual builder."
       />
-      <OrgPathBuilder catalog={catalog} backHref={`/org/${orgSlug}/paths`} />
+      <OrgPathBuilder catalog={catalog} backHref={`/org/${orgSlug}/paths`} orgId={org.id} />
     </div>
   );
 }

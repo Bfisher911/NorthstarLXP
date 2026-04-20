@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   BookOpen,
@@ -19,6 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toast";
+import { createCourse } from "@/app/actions/mutations";
 import { cn } from "@/lib/utils";
 
 const types = [
@@ -33,13 +36,31 @@ const types = [
 
 type TypeId = (typeof types)[number]["id"];
 
-export function CourseCreateForm({ backHref, coursesHref }: { backHref: string; coursesHref: string }) {
+export function CourseCreateForm({
+  backHref,
+  coursesHref,
+  orgId,
+  workspaceId,
+  orgSlug,
+  wsSlug,
+}: {
+  backHref: string;
+  coursesHref: string;
+  orgId: string;
+  workspaceId: string;
+  orgSlug: string;
+  wsSlug: string;
+}) {
   const [type, setType] = React.useState<TypeId | null>(null);
   const [title, setTitle] = React.useState("");
   const [summary, setSummary] = React.useState("");
   const [duration, setDuration] = React.useState("20");
   const [required, setRequired] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
+  const [pending, startTransition] = React.useTransition();
+  const [createdId, setCreatedId] = React.useState<string | null>(null);
+  const { toast } = useToast();
+  const router = useRouter();
 
   const selectedType = types.find((t) => t.id === type);
 
@@ -57,13 +78,18 @@ export function CourseCreateForm({ backHref, coursesHref }: { backHref: string; 
             publish when ready.
           </p>
           <div className="mt-6 flex items-center justify-center gap-2">
-            <Button variant="outline" onClick={() => { setSaved(false); setTitle(""); setSummary(""); setType(null); }}>
+            <Button variant="outline" onClick={() => { setSaved(false); setTitle(""); setSummary(""); setType(null); setCreatedId(null); }}>
               Create another
             </Button>
-            <Button asChild>
-              <Link href={coursesHref}>
-                Back to courses <ArrowRight className="h-4 w-4" />
-              </Link>
+            {createdId && (
+              <Button asChild>
+                <Link href={`${coursesHref}/${createdId}/edit`}>
+                  Open builder <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            )}
+            <Button variant="outline" asChild>
+              <Link href={coursesHref}>Back to courses</Link>
             </Button>
           </div>
         </CardContent>
@@ -121,7 +147,29 @@ export function CourseCreateForm({ backHref, coursesHref }: { backHref: string; 
             onSubmit={(e) => {
               e.preventDefault();
               if (!type || !title.trim()) return;
-              setSaved(true);
+              const fd = new FormData();
+              fd.set("orgId", orgId);
+              fd.set("workspaceId", workspaceId);
+              fd.set("orgSlug", orgSlug);
+              fd.set("wsSlug", wsSlug);
+              fd.set("type", type);
+              fd.set("title", title);
+              fd.set("summary", summary);
+              fd.set("durationMinutes", duration);
+              if (required) fd.set("required", "on");
+              startTransition(async () => {
+                const res = await createCourse(fd);
+                if (res.ok) {
+                  setCreatedId(res.id);
+                  setSaved(true);
+                  toast({
+                    title: "Course draft saved",
+                    description: `${title} is ready to edit in the builder.`,
+                    variant: "success",
+                  });
+                  router.refresh();
+                }
+              });
             }}
             className="space-y-4"
           >
@@ -191,8 +239,8 @@ export function CourseCreateForm({ backHref, coursesHref }: { backHref: string; 
               <Button type="button" variant="ghost" asChild>
                 <Link href={backHref}>Cancel</Link>
               </Button>
-              <Button type="submit" disabled={!type || !title.trim()}>
-                Save draft <ArrowRight className="h-4 w-4" />
+              <Button type="submit" disabled={!type || !title.trim() || pending}>
+                {pending ? "Saving…" : "Save draft"} <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </form>

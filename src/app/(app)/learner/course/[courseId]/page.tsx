@@ -137,6 +137,8 @@ export default async function CoursePage({
                   </Button>
                 </div>
                 <AttestForm
+                  userId={user.id}
+                  courseId={course.id}
                   statements={[
                     "I have read the Code of Conduct and I understand my responsibilities as a workforce member.",
                     "I understand that failure to comply may result in corrective action up to and including termination.",
@@ -198,6 +200,8 @@ export default async function CoursePage({
                 alreadyCompleted={a?.status === "completed"}
                 courseTitle={course.title}
                 nextUpHref="/learner/journey"
+                userId={user.id}
+                courseId={course.id}
               />
             </CardContent>
           </Card>

@@ -35,7 +35,14 @@ export default async function NewCoursePage({
         title="Start a new course"
         description="Pick a type, name it, and save a draft. You can refine modules, assessments, and AI context in the builder afterward."
       />
-      <CourseCreateForm backHref={backHref} coursesHref={backHref} />
+      <CourseCreateForm
+        backHref={backHref}
+        coursesHref={backHref}
+        orgId={org.id}
+        workspaceId={ws.id}
+        orgSlug={orgSlug}
+        wsSlug={wsSlug}
+      />
     </div>
   );
 }
