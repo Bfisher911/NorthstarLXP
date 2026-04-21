@@ -1,4 +1,4 @@
-import { Award, BookOpen, Compass, Home, Sparkles, Star } from "lucide-react";
+import { Award, BookOpen, Compass, Home, Library, Sparkles, Star } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import type { NavGroup } from "@/components/shell/sidebar";
 import { requireSession } from "@/lib/auth";
@@ -11,9 +11,15 @@ export default async function LearnerLayout({ children }: { children: React.Reac
         { title: "Home", href: "/learner", icon: <Home />, exact: true },
         { title: "My Journey", href: "/learner/journey", icon: <Compass /> },
         { title: "My Training", href: "/learner/training", icon: <BookOpen /> },
+      ],
+    },
+    {
+      label: "Explore",
+      items: [
+        { title: "Training library", href: "/learner/library", icon: <Library /> },
         { title: "Development", href: "/learner/development", icon: <Sparkles /> },
-        { title: "Certificates", href: "/learner/certificates", icon: <Award /> },
         { title: "Bookmarks", href: "/learner/bookmarks", icon: <Star /> },
+        { title: "Certificates", href: "/learner/certificates", icon: <Award /> },
       ],
     },
   ];

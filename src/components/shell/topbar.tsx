@@ -23,12 +23,14 @@ export function Topbar({
   scopeLabel,
   impersonating,
   mobileNav,
+  isLearner,
 }: {
   user: { id: string; name: string; email: string };
   roleLabel: string;
   scopeLabel?: string;
   impersonating?: boolean;
   mobileNav?: React.ReactNode;
+  isLearner?: boolean;
 }) {
   const { theme, toggle } = useTheme();
   const palette = useCommandPalette();
@@ -108,12 +110,16 @@ export function Topbar({
         <DropdownContent align="end" className="w-60">
           <DropdownLabel>{user.email}</DropdownLabel>
           <DropdownSeparator />
-          <DropdownItem asChild>
-            <a href="/learner" className="flex w-full items-center gap-2">
-              <UserCog className="h-4 w-4" /> Switch to learner view
-            </a>
-          </DropdownItem>
-          <DropdownSeparator />
+          {!isLearner && (
+            <>
+              <DropdownItem asChild>
+                <a href="/learner" className="flex w-full items-center gap-2">
+                  <UserCog className="h-4 w-4" /> Switch to learner view
+                </a>
+              </DropdownItem>
+              <DropdownSeparator />
+            </>
+          )}
           <DropdownItem asChild>
             <form action={signOut} className="w-full">
               <button className="flex w-full items-center gap-2">

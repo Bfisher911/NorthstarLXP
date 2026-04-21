@@ -62,6 +62,7 @@ export function AppShell({
               scopeLabel={scopeLabel}
               impersonating={impersonating}
               mobileNav={<MobileNav groups={groups} sidebarFooter={sidebarFooter} />}
+              isLearner={role === "learner"}
             />
             {impersonating && <ImpersonationBanner />}
             <main className="relative flex-1 overflow-y-auto scrollbar-thin bg-gradient-to-b from-background to-muted/20">

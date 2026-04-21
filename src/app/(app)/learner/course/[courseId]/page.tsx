@@ -24,7 +24,9 @@ import { Progress } from "@/components/ui/progress";
 import { requireSession } from "@/lib/auth";
 import { getAssignmentsForUser, getCourseById } from "@/lib/data";
 import { AttestForm } from "@/components/learner/attest-form";
+import { BookmarkButton } from "@/components/learner/bookmark-button";
 import { CoursePlayerControls } from "@/components/learner/course-player-controls";
+import { isBookmarked } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
 import type { CourseModule } from "@/lib/types";
 
@@ -103,7 +105,16 @@ export default async function CoursePage({
                   )}
                 </div>
               </div>
-              <div className="text-8xl opacity-90">{course.thumbnailEmoji}</div>
+              <div className="flex flex-col items-end gap-2">
+                <div className="text-8xl opacity-90">{course.thumbnailEmoji}</div>
+                <BookmarkButton
+                  userId={user.id}
+                  courseId={course.id}
+                  courseTitle={course.title}
+                  initialBookmarked={isBookmarked(user.id, course.id)}
+                  variant="outline"
+                />
+              </div>
             </div>
           </div>
 
@@ -202,6 +213,13 @@ export default async function CoursePage({
                 nextUpHref="/learner/journey"
                 userId={user.id}
                 courseId={course.id}
+                modules={course.modules?.map((m) => ({
+                  id: m.id,
+                  title: m.title,
+                  type: m.type,
+                  durationMinutes: m.durationMinutes,
+                  body: m.body,
+                }))}
               />
             </CardContent>
           </Card>

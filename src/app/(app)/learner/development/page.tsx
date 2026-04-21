@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, Bookmark, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BookmarkButton } from "@/components/learner/bookmark-button";
 import { requireSession } from "@/lib/auth";
-import { getCoursesForOrg } from "@/lib/data";
+import { getCoursesForOrg, isBookmarked } from "@/lib/data";
 
 export default async function DevelopmentPage() {
   const { user } = await requireSession();
@@ -29,9 +30,16 @@ export default async function DevelopmentPage() {
           <Card key={c.id} className="group overflow-hidden">
             <div className={`relative flex h-32 items-center justify-center bg-gradient-to-br ${c.thumbnailColor} text-5xl`}>
               {c.thumbnailEmoji}
-              <button className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-background/80 text-muted-foreground backdrop-blur hover:text-primary">
-                <Bookmark className="h-4 w-4" />
-              </button>
+              <div className="absolute right-3 top-3">
+                <BookmarkButton
+                  userId={user.id}
+                  courseId={c.id}
+                  courseTitle={c.title}
+                  initialBookmarked={isBookmarked(user.id, c.id)}
+                  variant="outline"
+                  iconOnly
+                />
+              </div>
             </div>
             <CardHeader className="pb-2">
               <div className="flex items-center gap-2">

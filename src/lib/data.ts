@@ -1489,6 +1489,23 @@ export const auditLog: AuditLogEntry[] = [
   },
 ];
 
+export const bookmarks: Array<{ userId: string; courseId: string; createdAt: string }> = [
+  { userId: "u_learner_1", courseId: "c_coaching", createdAt: new Date().toISOString() },
+  { userId: "u_learner_1", courseId: "c_back_safety", createdAt: new Date().toISOString() },
+  { userId: "u_learner_1", courseId: "c_phishing", createdAt: new Date().toISOString() },
+];
+
+export function isBookmarked(userId: string, courseId: string): boolean {
+  return bookmarks.some((b) => b.userId === userId && b.courseId === courseId);
+}
+
+export function getBookmarkedCourses(userId: string) {
+  return bookmarks
+    .filter((b) => b.userId === userId)
+    .map((b) => getCourseById(b.courseId))
+    .filter((c): c is NonNullable<typeof c> => !!c);
+}
+
 export const impersonationSessions: ImpersonationSession[] = [
   {
     id: "is_1",

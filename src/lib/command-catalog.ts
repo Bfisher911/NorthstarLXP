@@ -41,6 +41,7 @@ export function buildCommandCatalog({
       { id: "nav_learner_home", title: "My dashboard", href: "/learner", group: "Navigation" },
       { id: "nav_journey", title: "My journey map", href: "/learner/journey", group: "Navigation" },
       { id: "nav_training", title: "My training", href: "/learner/training", group: "Navigation" },
+      { id: "nav_library", title: "Training library", href: "/learner/library", group: "Navigation" },
       { id: "nav_certs", title: "My certificates", href: "/learner/certificates", group: "Navigation" },
       { id: "nav_dev", title: "Optional development", href: "/learner/development", group: "Navigation" },
       { id: "nav_bookmarks", title: "Bookmarks", href: "/learner/bookmarks", group: "Navigation" }

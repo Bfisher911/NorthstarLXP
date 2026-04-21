@@ -3,17 +3,47 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CheckCircle2, PlayCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  FileText,
+  HelpCircle,
+  ListChecks,
+  PlayCircle,
+  ShieldCheck,
+  Video,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Confetti } from "@/components/ui/confetti";
 import { useToast } from "@/components/ui/toast";
 import { completeCourse } from "@/app/actions/mutations";
+import { cn } from "@/lib/utils";
+
+export interface PlayerModule {
+  id: string;
+  title: string;
+  type: "lesson" | "video" | "quiz" | "checkpoint" | "attestation" | "file";
+  durationMinutes?: number;
+  body?: string;
+}
+
+const moduleIcon = {
+  lesson: FileText,
+  video: Video,
+  quiz: HelpCircle,
+  checkpoint: ListChecks,
+  attestation: ShieldCheck,
+  file: FileText,
+} as const;
 
 /**
- * Interactive progress + complete control for the course player page. Clicking
- * "Continue" advances progress in increments; at 100% the user can mark the
- * course complete, which fires the confetti burst and a success toast.
+ * Steps a learner through the real module list of a course. "Continue"
+ * advances to the next module; the final module shows "Mark complete" which
+ * fires confetti + writes a completion + credential. When there are no
+ * authored modules (SCORM, live, policy, survey, evidence-task) we fall
+ * back to a single virtual module so the button still behaves sensibly.
  */
 export function CoursePlayerControls({
   initialProgress,
@@ -22,6 +52,7 @@ export function CoursePlayerControls({
   nextUpHref,
   userId,
   courseId,
+  modules,
 }: {
   initialProgress: number; // 0-100
   alreadyCompleted?: boolean;
@@ -29,24 +60,52 @@ export function CoursePlayerControls({
   nextUpHref?: string;
   userId?: string;
   courseId?: string;
+  modules?: PlayerModule[];
 }) {
-  const [progress, setProgress] = React.useState(initialProgress);
+  const effectiveModules: PlayerModule[] =
+    modules && modules.length > 0
+      ? modules
+      : [{ id: "__only__", title: courseTitle, type: "lesson" }];
+
+  const total = effectiveModules.length;
+
+  // Derive the starting module index from the stored progress.
+  const initialIndex = Math.min(
+    total - 1,
+    Math.max(0, Math.floor((initialProgress / 100) * total))
+  );
+
+  const [activeIndex, setActiveIndex] = React.useState(initialIndex);
+  const [doneIndices, setDoneIndices] = React.useState<Set<number>>(
+    () => new Set(alreadyCompleted ? effectiveModules.map((_, i) => i) : [])
+  );
   const [completed, setCompleted] = React.useState(!!alreadyCompleted);
   const [fire, setFire] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
   const { toast } = useToast();
   const router = useRouter();
 
-  const advance = () => {
-    setProgress((p) => {
-      const next = Math.min(100, Math.max(p + 25, p));
+  const progressPct = completed
+    ? 100
+    : Math.round((doneIndices.size / total) * 100);
+  const active = effectiveModules[activeIndex];
+  const isLastModule = activeIndex === total - 1;
+  const isActiveDone = doneIndices.has(activeIndex);
+
+  const markActiveDoneAndAdvance = () => {
+    setDoneIndices((prev) => {
+      const next = new Set(prev);
+      next.add(activeIndex);
       return next;
     });
+    if (!isLastModule) {
+      setActiveIndex((i) => Math.min(total - 1, i + 1));
+    }
   };
 
   const markComplete = () => {
     setCompleted(true);
-    setProgress(100);
+    setDoneIndices(new Set(effectiveModules.map((_, i) => i)));
     setFire(true);
     if (userId && courseId) {
       startTransition(async () => {
@@ -61,15 +120,72 @@ export function CoursePlayerControls({
     });
   };
 
+  const ActiveIcon = moduleIcon[active.type];
+
   return (
     <div className="space-y-4">
       <Confetti fire={fire} onDone={() => setFire(false)} />
 
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">Completion</span>
-        <span className="font-semibold">{Math.round(progress)}%</span>
+        <span className="font-semibold">{progressPct}%</span>
       </div>
-      <Progress value={progress} />
+      <Progress value={progressPct} />
+
+      {/* Module stepper — visible progress, clickable to jump */}
+      {total > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          {effectiveModules.map((m, i) => {
+            const done = doneIndices.has(i);
+            const current = i === activeIndex;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setActiveIndex(i)}
+                title={m.title}
+                className={cn(
+                  "h-1.5 flex-1 min-w-[24px] rounded-full transition",
+                  done
+                    ? "bg-emerald-500"
+                    : current
+                    ? "bg-primary"
+                    : "bg-muted hover:bg-muted-foreground/30"
+                )}
+                aria-label={`Module ${i + 1}: ${m.title}`}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* Current module card */}
+      {!completed && (
+        <div className="rounded-lg border bg-muted/30 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <ActiveIcon className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Module {activeIndex + 1} of {total} · {active.type}
+                {active.durationMinutes ? ` · ${active.durationMinutes} min` : ""}
+              </div>
+              <div className="mt-0.5 font-display text-base font-semibold">
+                {active.title}
+              </div>
+              {active.body && (
+                <p className="mt-1 text-xs text-muted-foreground">{active.body}</p>
+              )}
+              {isActiveDone && (
+                <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Completed
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {completed ? (
         <div className="space-y-3">
@@ -85,15 +201,32 @@ export function CoursePlayerControls({
             </Button>
           )}
         </div>
-      ) : progress >= 100 ? (
-        <Button className="w-full" onClick={markComplete} size="lg" disabled={pending}>
-          <CheckCircle2 className="h-4 w-4" /> {pending ? "Saving…" : "Mark complete"}
-        </Button>
       ) : (
-        <Button className="w-full" onClick={advance} size="lg">
-          <PlayCircle className="h-4 w-4" />
-          {progress > 0 ? "Continue" : "Start course"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {activeIndex > 0 && (
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => setActiveIndex((i) => Math.max(0, i - 1))}
+            >
+              <ArrowLeft className="h-4 w-4" /> Back
+            </Button>
+          )}
+          {isLastModule ? (
+            <Button
+              className="flex-1"
+              onClick={markComplete}
+              size="lg"
+              disabled={pending}
+            >
+              <CheckCircle2 className="h-4 w-4" /> {pending ? "Saving…" : "Mark complete"}
+            </Button>
+          ) : (
+            <Button className="flex-1" onClick={markActiveDoneAndAdvance} size="lg">
+              <PlayCircle className="h-4 w-4" /> Next module <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );

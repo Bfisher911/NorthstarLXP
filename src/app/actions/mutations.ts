@@ -7,6 +7,7 @@ import { db, supabaseEnabled } from "@/lib/db";
 import {
   assignments,
   auditLog,
+  bookmarks,
   certificates,
   courses,
   getCourseById,
@@ -562,6 +563,22 @@ export async function sendReminder(args: {
   });
   revalidatePath("/", "layout");
   return { ok: true as const, sent: args.userIds.length };
+}
+
+// --------------------- Bookmarks ---------------------
+
+export async function toggleBookmark(args: { userId: string; courseId: string }) {
+  const i = bookmarks.findIndex((b) => b.userId === args.userId && b.courseId === args.courseId);
+  if (i >= 0) {
+    bookmarks.splice(i, 1);
+    audit("bookmark.removed", args.courseId, { userId: args.userId });
+    revalidatePath("/", "layout");
+    return { ok: true as const, bookmarked: false };
+  }
+  bookmarks.push({ ...args, createdAt: new Date().toISOString() });
+  audit("bookmark.added", args.courseId, { userId: args.userId });
+  revalidatePath("/", "layout");
+  return { ok: true as const, bookmarked: true };
 }
 
 // --------------------- Utility ---------------------
