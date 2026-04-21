@@ -118,6 +118,35 @@ export default async function CoursePage({
             </div>
           </div>
 
+          {course.overview && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Overview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm leading-relaxed text-foreground">{course.overview}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {course.learningObjectives && course.learningObjectives.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>What you&rsquo;ll learn</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  {course.learningObjectives.map((obj, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                      <span>{obj}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
           {course.type === "authored" && course.modules && (
             <Card>
               <CardHeader>
@@ -127,6 +156,24 @@ export default async function CoursePage({
                 {course.modules.map((m, i) => (
                   <ModuleRow key={m.id} module={m} index={i} progress={a?.progress ?? 0} />
                 ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {course.references && course.references.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>References</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-1.5 text-xs text-muted-foreground">
+                  {course.references.map((r, i) => (
+                    <li key={i} className="flex gap-2">
+                      <span className="text-muted-foreground/60">·</span>
+                      <span>{r}</span>
+                    </li>
+                  ))}
+                </ul>
               </CardContent>
             </Card>
           )}
@@ -219,6 +266,7 @@ export default async function CoursePage({
                   type: m.type,
                   durationMinutes: m.durationMinutes,
                   body: m.body,
+                  questions: m.questions,
                 }))}
               />
             </CardContent>

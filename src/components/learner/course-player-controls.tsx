@@ -20,6 +20,9 @@ import { Confetti } from "@/components/ui/confetti";
 import { useToast } from "@/components/ui/toast";
 import { completeCourse } from "@/app/actions/mutations";
 import { cn } from "@/lib/utils";
+import { LessonProse } from "@/components/learner/lesson-prose";
+import { QuizRunner } from "@/components/learner/quiz-runner";
+import type { QuizQuestion } from "@/lib/types";
 
 export interface PlayerModule {
   id: string;
@@ -27,6 +30,7 @@ export interface PlayerModule {
   type: "lesson" | "video" | "quiz" | "checkpoint" | "attestation" | "file";
   durationMinutes?: number;
   body?: string;
+  questions?: QuizQuestion[];
 }
 
 const moduleIcon = {
@@ -161,7 +165,7 @@ export function CoursePlayerControls({
 
       {/* Current module card */}
       {!completed && (
-        <div className="rounded-lg border bg-muted/30 p-4">
+        <div className="space-y-4 rounded-xl border bg-card p-5">
           <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <ActiveIcon className="h-4 w-4" />
@@ -171,12 +175,9 @@ export function CoursePlayerControls({
                 Module {activeIndex + 1} of {total} · {active.type}
                 {active.durationMinutes ? ` · ${active.durationMinutes} min` : ""}
               </div>
-              <div className="mt-0.5 font-display text-base font-semibold">
+              <div className="mt-0.5 font-display text-xl font-semibold tracking-tight">
                 {active.title}
               </div>
-              {active.body && (
-                <p className="mt-1 text-xs text-muted-foreground">{active.body}</p>
-              )}
               {isActiveDone && (
                 <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
                   <CheckCircle2 className="h-3.5 w-3.5" /> Completed
@@ -184,6 +185,35 @@ export function CoursePlayerControls({
               )}
             </div>
           </div>
+
+          {active.type === "video" && (
+            <div className="relative overflow-hidden rounded-lg border bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 aspect-video">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 ring-2 ring-white/40 backdrop-blur">
+                  <PlayCircle className="h-7 w-7 text-white" />
+                </div>
+              </div>
+              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-[10px] uppercase tracking-widest text-white/80">
+                <span>Video · {active.durationMinutes ?? 0} min</span>
+                <span>1× · CC</span>
+              </div>
+            </div>
+          )}
+
+          {active.type === "quiz" && active.questions && active.questions.length > 0 ? (
+            <QuizRunner
+              questions={active.questions}
+              onPass={() => {
+                setDoneIndices((prev) => {
+                  const next = new Set(prev);
+                  next.add(activeIndex);
+                  return next;
+                });
+              }}
+            />
+          ) : active.body ? (
+            <LessonProse body={active.body} />
+          ) : null}
         </div>
       )}
 

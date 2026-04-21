@@ -112,6 +112,12 @@ export interface Course {
   authors: string[]; // user ids
   published: boolean;
   updatedAt: string;
+  /** Bullet-list learning objectives shown on the course landing. */
+  learningObjectives?: string[];
+  /** Short intro paragraph shown before the first module. */
+  overview?: string;
+  /** Credit / source list shown at the end of the course. */
+  references?: string[];
   modules?: CourseModule[];
   scheduledSessions?: LiveSession[];
   policyFile?: { name: string; size: string };
