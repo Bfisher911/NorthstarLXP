@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE } from "@/lib/auth";
+import { db, supabaseEnabled } from "@/lib/db";
 import {
   assignments,
   auditLog,
@@ -28,6 +29,23 @@ import type {
   SmartGroup,
   SmartGroupCondition,
 } from "@/lib/types";
+
+/**
+ * Each mutation below writes to the in-memory seed store (keeps reads fast
+ * and demo-stable) and, when USE_SUPABASE=true, mirrors the change into
+ * Postgres via the db adapter. Supabase errors are logged but never block
+ * the UI — the in-memory write always succeeds first.
+ */
+function mirror(task: Promise<{ ok: boolean; reason?: string }>, label: string): void {
+  if (!supabaseEnabled()) return;
+  task
+    .then((r) => {
+      if (!r.ok && r.reason !== "memory") {
+        console.warn(`[supabase:${label}]`, r.reason);
+      }
+    })
+    .catch((e) => console.warn(`[supabase:${label}] threw`, e));
+}
 
 // NOTE: all data lives in `src/lib/data.ts` arrays which are module-scoped and
 // mutable. In a single running Node process (dev, most Netlify warm starts)
@@ -66,6 +84,16 @@ function audit(action: string, target?: string, meta?: Record<string, unknown>) 
     createdAt: new Date().toISOString(),
     meta,
   });
+  mirror(
+    db.appendAudit({
+      orgId: actor?.orgId,
+      actorId: uid,
+      action,
+      target,
+      meta,
+    }),
+    "audit"
+  );
 }
 
 // --------------------- Courses ---------------------
@@ -81,8 +109,9 @@ export async function createCourse(formData: FormData) {
   const orgSlug = String(formData.get("orgSlug") ?? "");
   const wsSlug = String(formData.get("wsSlug") ?? "");
 
+  const dbId = crypto.randomUUID();
   const course: Course = {
-    id: `c_${Math.random().toString(36).slice(2, 8)}`,
+    id: dbId,
     orgId,
     workspaceId,
     title,
@@ -101,6 +130,21 @@ export async function createCourse(formData: FormData) {
     updatedAt: new Date().toISOString(),
   };
   courses.push(course);
+  mirror(
+    db.insertCourse({
+      dbId,
+      orgId,
+      workspaceId,
+      type,
+      title,
+      summary,
+      description: summary,
+      durationMinutes: Math.max(1, duration),
+      required,
+      authorUserId: actorId() ?? undefined,
+    }),
+    "insertCourse"
+  );
   audit("course.created", course.id, { title });
   if (orgSlug && wsSlug) revalidatePath(`/org/${orgSlug}/w/${wsSlug}/courses`);
   return { ok: true as const, id: course.id };
@@ -121,6 +165,7 @@ export async function updateCourse(formData: FormData) {
   };
   const i = courses.findIndex((c) => c.id === id);
   if (i >= 0) courses[i] = next;
+  mirror(db.updateCourse(id, next), "updateCourse");
   audit("course.updated", id);
   const ws = getWorkspaceById(course.workspaceId);
   const org = users.find((u) => u.orgId === course.orgId); // not used for slug resolution
@@ -134,6 +179,7 @@ export async function publishCourse(formData: FormData) {
   const i = courses.findIndex((c) => c.id === id);
   if (i < 0) return { ok: false as const };
   courses[i] = { ...courses[i], published: true, updatedAt: new Date().toISOString() };
+  mirror(db.publishCourse(id), "publishCourse");
   audit("course.published", id);
   revalidatePath("/", "layout");
   return { ok: true as const };
@@ -149,8 +195,9 @@ export async function createPath(formData: FormData) {
   const required = formData.get("required") === "on";
   const credential = formData.get("credentialOnComplete") === "on";
 
+  const dbId = crypto.randomUUID();
   const path: LearningPath = {
-    id: `lp_${Math.random().toString(36).slice(2, 8)}`,
+    id: dbId,
     orgId,
     workspaceId,
     name,
@@ -170,6 +217,18 @@ export async function createPath(formData: FormData) {
     edges: [{ id: "e1", from: "n1", to: "n2" }],
   };
   learningPaths.push(path);
+  mirror(
+    db.insertPath({
+      dbId,
+      orgId,
+      workspaceId,
+      name,
+      audience,
+      required,
+      certificateOnComplete: credential,
+    }),
+    "insertPath"
+  );
   audit("learning_path.created", path.id, { name });
   revalidatePath("/", "layout");
   return { ok: true as const, id: path.id };
@@ -203,8 +262,9 @@ export async function createSmartGroup(args: {
   conditions: SmartGroupCondition[];
   memberCount: number;
 }) {
+  const dbId = crypto.randomUUID();
   const g: SmartGroup = {
-    id: `sg_${Math.random().toString(36).slice(2, 8)}`,
+    id: dbId,
     orgId: args.orgId,
     workspaceId: args.workspaceId,
     name: args.name,
@@ -213,6 +273,18 @@ export async function createSmartGroup(args: {
     memberCount: args.memberCount,
   };
   smartGroups.push(g);
+  mirror(
+    db.insertSmartGroup({
+      dbId,
+      orgId: args.orgId,
+      workspaceId: args.workspaceId,
+      name: args.name,
+      description: args.description,
+      conditions: args.conditions,
+      memberCount: args.memberCount,
+    }),
+    "insertSmartGroup"
+  );
   audit("smart_group.created", g.id, { name: args.name });
   revalidatePath("/", "layout");
   return { ok: true as const, id: g.id };
@@ -233,8 +305,9 @@ export async function assignCourse(args: {
       (a) => a.userId === uid && a.courseId === args.courseId && a.status !== "completed"
     );
     if (existing) continue;
+    const dbId = crypto.randomUUID();
     assignments.push({
-      id: `a_${Math.random().toString(36).slice(2, 8)}`,
+      id: dbId,
       userId: uid,
       courseId: args.courseId,
       status: "not_started",
@@ -244,6 +317,17 @@ export async function assignCourse(args: {
       source: args.source,
       dueAt: args.dueAt,
     });
+    mirror(
+      db.insertAssignment({
+        dbId,
+        userId: uid,
+        courseId: args.courseId,
+        method: args.method,
+        source: args.source,
+        dueAt: args.dueAt,
+      }),
+      "insertAssignment"
+    );
     created++;
   }
   audit("assignments.created", args.courseId, { count: created, method: args.method });
@@ -284,17 +368,38 @@ export async function completeCourse(args: { userId: string; courseId: string; s
     });
   }
 
+  mirror(
+    db.markComplete({
+      userId: args.userId,
+      courseId: args.courseId,
+      expiresAt,
+      score: args.score,
+    }),
+    "markComplete"
+  );
   if (course.certificateEnabled) {
+    const certDbId = crypto.randomUUID();
+    const credentialCode = `NS-${course.id.toUpperCase().slice(0, 6)}-${Math.floor(Math.random() * 9000) + 1000}`;
     certificates.push({
-      id: `cert_${Math.random().toString(36).slice(2, 8)}`,
+      id: certDbId,
       userId: args.userId,
       courseId: args.courseId,
       issuedAt: now.toISOString(),
       expiresAt,
-      credentialCode: `NS-${course.id.toUpperCase().slice(0, 6)}-${Math.floor(Math.random() * 9000) + 1000}`,
+      credentialCode,
       pdfTemplate: "default",
       status: "active",
     });
+    mirror(
+      db.insertCertificate({
+        dbId: certDbId,
+        userId: args.userId,
+        courseId: args.courseId,
+        credentialCode,
+        expiresAt,
+      }),
+      "insertCertificate"
+    );
   }
 
   audit("course.completed", args.courseId, { userId: args.userId });
@@ -332,7 +437,7 @@ export async function submitSurvey(args: {
     );
     if (existing) continue;
     assignments.push({
-      id: `a_${Math.random().toString(36).slice(2, 8)}`,
+      id: crypto.randomUUID(),
       userId: args.userId,
       courseId: cid,
       status: "not_started",
@@ -342,6 +447,14 @@ export async function submitSurvey(args: {
       source: `Survey: ${survey.title}`,
     });
   }
+  mirror(
+    db.recordSurveyAssignments({
+      userId: args.userId,
+      surveyId: args.surveyId,
+      triggeredCourseIds: triggered,
+    }),
+    "recordSurveyAssignments"
+  );
   audit("survey.submitted", args.surveyId, { userId: args.userId, triggered: triggered.length });
   revalidatePath("/", "layout");
   return { ok: true as const, triggered };
@@ -362,26 +475,43 @@ export async function runGroomingJob(args: { orgId: string; workspaceId: string 
     for (const u of orgUsers.slice(0, 4)) {
       const hasAssignment = assignments.some((a) => a.userId === u.id && a.courseId === c.id);
       if (hasAssignment) continue;
+      const dbId = crypto.randomUUID();
+      const confidence = 0.65 + Math.random() * 0.3;
+      const evidence = [
+        `Title: ${u.employee?.title ?? "—"}`,
+        `Department: ${u.employee?.department ?? "—"}`,
+        `Course: ${c.title}`,
+      ];
+      const reason = `Profile match: ${u.employee?.title ?? "role"} aligns with course AI context`;
       const sug: AiSuggestion = {
-        id: `ai_${Math.random().toString(36).slice(2, 8)}`,
+        id: dbId,
         orgId: org,
         workspaceId: ws,
         courseId: c.id,
         userId: u.id,
-        reason: `Profile match: ${u.employee?.title ?? "role"} aligns with course AI context`,
-        confidence: 0.65 + Math.random() * 0.3,
+        reason,
+        confidence,
         createdAt: new Date().toISOString(),
         status: "pending",
-        evidence: [
-          `Title: ${u.employee?.title ?? "—"}`,
-          `Department: ${u.employee?.department ?? "—"}`,
-          `Course: ${c.title}`,
-        ],
+        evidence,
       };
       // Avoid dupes in our own queue
       const { aiSuggestions } = await import("@/lib/data");
       if (!aiSuggestions.some((s) => s.userId === u.id && s.courseId === c.id && s.status === "pending")) {
         aiSuggestions.push(sug);
+        mirror(
+          db.insertAiSuggestion({
+            dbId,
+            orgId: org,
+            workspaceId: ws,
+            courseId: c.id,
+            userId: u.id,
+            reason,
+            confidence,
+            evidence,
+          }),
+          "insertAiSuggestion"
+        );
         created++;
       }
     }
@@ -402,6 +532,7 @@ export async function approveAiSuggestion(args: { suggestionId: string }) {
     source: s.reason,
   });
   s.status = "approved";
+  mirror(db.updateAiSuggestionStatus(s.id, "approved"), "ai.approve");
   audit("ai.suggestion_approved", s.id);
   revalidatePath("/", "layout");
   return { ok: true as const };
@@ -412,6 +543,7 @@ export async function rejectAiSuggestion(args: { suggestionId: string }) {
   const s = aiSuggestions.find((x) => x.id === args.suggestionId);
   if (!s) return { ok: false as const };
   s.status = "rejected";
+  mirror(db.updateAiSuggestionStatus(s.id, "rejected"), "ai.reject");
   audit("ai.suggestion_rejected", s.id);
   revalidatePath("/", "layout");
   return { ok: true as const };
