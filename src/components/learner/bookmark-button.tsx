@@ -71,7 +71,10 @@ export function BookmarkButton({
       onClick={click}
       aria-pressed={bookmarked}
       aria-label={bookmarked ? "Remove bookmark" : "Add bookmark"}
-      className={cn(bookmarked && "text-amber-600 dark:text-amber-400")}
+      className={cn(
+        "!text-foreground",
+        bookmarked && "!text-amber-600 dark:!text-amber-400"
+      )}
     >
       <Icon className={cn("h-4 w-4", bookmarked && "fill-amber-500")} />
       {!iconOnly && <span>{bookmarked ? "Bookmarked" : "Bookmark"}</span>}
