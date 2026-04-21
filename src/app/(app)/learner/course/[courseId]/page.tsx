@@ -28,6 +28,7 @@ import { BookmarkButton } from "@/components/learner/bookmark-button";
 import { CoursePlayerControls } from "@/components/learner/course-player-controls";
 import { isBookmarked } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
+import { getEngagementState } from "@/lib/retake";
 import type { CourseModule } from "@/lib/types";
 
 const moduleIcon = {
@@ -51,6 +52,7 @@ export default async function CoursePage({
   const a = getAssignmentsForUser(user.id).find((x) => x.courseId === courseId);
 
   const progress = a ? Math.round(a.progress * 100) : 0;
+  const engagement = getEngagementState(course, a);
 
   return (
     <div className="space-y-6">
@@ -240,6 +242,30 @@ export default async function CoursePage({
               <CardTitle>Your progress</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {engagement.mode !== "first" && (
+                <div
+                  className={
+                    engagement.mode === "retake_open"
+                      ? "rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs"
+                      : "rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-xs"
+                  }
+                >
+                  <div className="font-semibold">
+                    {engagement.modeLabel}
+                    {a?.expiresAt && (
+                      <span className="ml-2 font-normal text-muted-foreground">
+                        · Valid through {formatDate(a.expiresAt)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-muted-foreground">{engagement.modeHint}</div>
+                  {engagement.retakeWindowOpensAt && engagement.mode === "review" && (
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      Retake opens {formatDate(engagement.retakeWindowOpensAt)}
+                    </div>
+                  )}
+                </div>
+              )}
               {a?.dueAt && (
                 <div className="rounded-lg border bg-muted/40 px-3 py-2 text-xs">
                   <span className="text-muted-foreground">Due: </span>
@@ -260,6 +286,7 @@ export default async function CoursePage({
                 nextUpHref="/learner/journey"
                 userId={user.id}
                 courseId={course.id}
+                engagementMode={engagement.mode}
                 modules={course.modules?.map((m) => ({
                   id: m.id,
                   title: m.title,

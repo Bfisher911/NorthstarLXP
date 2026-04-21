@@ -336,13 +336,33 @@ export async function assignCourse(args: {
   return { ok: true as const, created };
 }
 
-export async function completeCourse(args: { userId: string; courseId: string; score?: number }) {
+export async function completeCourse(args: {
+  userId: string;
+  courseId: string;
+  score?: number;
+  /**
+   * "first"  — first-time completion or any completion that should update
+   *            the learner's compliance date and (re)issue a certificate.
+   * "retake" — same as "first" for downstream effects; separated so audit
+   *            logs distinguish retakes from initial completions.
+   * "review" — learner finished a review pass. DO NOT update completedAt,
+   *            expiresAt, or issue a new certificate. Only log the review.
+   */
+  mode?: "first" | "retake" | "review";
+}) {
+  const mode = args.mode ?? "first";
   const course = getCourseById(args.courseId);
   if (!course) return { ok: false as const };
   const now = new Date();
   const expiresAt = course.renewalMonths
     ? new Date(now.getFullYear(), now.getMonth() + course.renewalMonths, now.getDate()).toISOString()
     : undefined;
+
+  if (mode === "review") {
+    audit("course.reviewed", args.courseId, { userId: args.userId });
+    revalidatePath("/", "layout");
+    return { ok: true as const, mode: "review" as const };
+  }
 
   const i = assignments.findIndex((a) => a.userId === args.userId && a.courseId === args.courseId);
   if (i >= 0) {
@@ -379,6 +399,15 @@ export async function completeCourse(args: { userId: string; courseId: string; s
     "markComplete"
   );
   if (course.certificateEnabled) {
+    // Retake: expire the old active certificate so the user only has one
+    // current credential outstanding, then issue a fresh one.
+    if (mode === "retake") {
+      for (const c of certificates) {
+        if (c.userId === args.userId && c.courseId === args.courseId && c.status === "active") {
+          c.status = "expired";
+        }
+      }
+    }
     const certDbId = crypto.randomUUID();
     const credentialCode = `NS-${course.id.toUpperCase().slice(0, 6)}-${Math.floor(Math.random() * 9000) + 1000}`;
     certificates.push({
@@ -403,9 +432,11 @@ export async function completeCourse(args: { userId: string; courseId: string; s
     );
   }
 
-  audit("course.completed", args.courseId, { userId: args.userId });
+  audit(mode === "retake" ? "course.retaken" : "course.completed", args.courseId, {
+    userId: args.userId,
+  });
   revalidatePath("/", "layout");
-  return { ok: true as const };
+  return { ok: true as const, mode };
 }
 
 export async function signAttestation(args: { userId: string; courseId: string; signature: string }) {

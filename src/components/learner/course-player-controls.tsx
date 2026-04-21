@@ -57,6 +57,7 @@ export function CoursePlayerControls({
   userId,
   courseId,
   modules,
+  engagementMode = "first",
 }: {
   initialProgress: number; // 0-100
   alreadyCompleted?: boolean;
@@ -65,6 +66,12 @@ export function CoursePlayerControls({
   userId?: string;
   courseId?: string;
   modules?: PlayerModule[];
+  /**
+   * first       — initial completion; writes compliance date + cert
+   * retake_open — re-completion writes fresh compliance date + cert
+   * review      — finishing is a no-op for compliance; learner just re-reads
+   */
+  engagementMode?: "first" | "retake_open" | "review";
 }) {
   const effectiveModules: PlayerModule[] =
     modules && modules.length > 0
@@ -79,11 +86,18 @@ export function CoursePlayerControls({
     Math.max(0, Math.floor((initialProgress / 100) * total))
   );
 
+  // Retake and review start the walkthrough fresh even though the learner
+  // has an existing completion. "First" short-circuits to the done state if
+  // the learner was already marked completed (which shouldn't happen because
+  // the parent routes completed learners to retake/review mode, but we keep
+  // the fallback).
+  const startsCompleted = engagementMode === "first" && !!alreadyCompleted;
+
   const [activeIndex, setActiveIndex] = React.useState(initialIndex);
   const [doneIndices, setDoneIndices] = React.useState<Set<number>>(
-    () => new Set(alreadyCompleted ? effectiveModules.map((_, i) => i) : [])
+    () => new Set(startsCompleted ? effectiveModules.map((_, i) => i) : [])
   );
-  const [completed, setCompleted] = React.useState(!!alreadyCompleted);
+  const [completed, setCompleted] = React.useState(startsCompleted);
   const [fire, setFire] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
   const { toast } = useToast();
@@ -110,16 +124,29 @@ export function CoursePlayerControls({
   const markComplete = () => {
     setCompleted(true);
     setDoneIndices(new Set(effectiveModules.map((_, i) => i)));
-    setFire(true);
+    const isReview = engagementMode === "review";
+    if (!isReview) setFire(true);
     if (userId && courseId) {
       startTransition(async () => {
-        await completeCourse({ userId, courseId });
+        await completeCourse({
+          userId,
+          courseId,
+          mode: isReview ? "review" : engagementMode === "retake_open" ? "retake" : "first",
+        });
         router.refresh();
       });
     }
     toast({
-      title: "🎉 Course complete",
-      description: `${courseTitle} — nice work. Credential awarded.`,
+      title: isReview
+        ? "Review recorded"
+        : engagementMode === "retake_open"
+        ? "🎉 Retake submitted"
+        : "🎉 Course complete",
+      description: isReview
+        ? `${courseTitle} review finished. Your compliance date was not changed.`
+        : engagementMode === "retake_open"
+        ? `${courseTitle} — fresh certificate issued, compliance date updated.`
+        : `${courseTitle} — nice work. Credential awarded.`,
       variant: "success",
     });
   };
@@ -221,7 +248,13 @@ export function CoursePlayerControls({
         <div className="space-y-3">
           <div className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm">
             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-            <span className="font-medium">Completed — your certificate is ready.</span>
+            <span className="font-medium">
+              {engagementMode === "review"
+                ? "Review finished. Your compliance date is unchanged."
+                : engagementMode === "retake_open"
+                ? "Retake submitted — your compliance date and certificate have been refreshed."
+                : "Completed — your certificate is ready."}
+            </span>
           </div>
           {nextUpHref && (
             <Button className="w-full" asChild>
@@ -249,7 +282,14 @@ export function CoursePlayerControls({
               size="lg"
               disabled={pending}
             >
-              <CheckCircle2 className="h-4 w-4" /> {pending ? "Saving…" : "Mark complete"}
+              <CheckCircle2 className="h-4 w-4" />
+              {pending
+                ? "Saving…"
+                : engagementMode === "review"
+                ? "Finish review"
+                : engagementMode === "retake_open"
+                ? "Submit retake"
+                : "Mark complete"}
             </Button>
           ) : (
             <Button className="flex-1" onClick={markActiveDoneAndAdvance} size="lg">

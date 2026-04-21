@@ -107,6 +107,20 @@ export interface Course {
   required: boolean;
   renewalMonths?: number;
   certificateEnabled: boolean;
+  /**
+   * How learners may re-engage with a completed course.
+   *   - "review_only"  — they can read lessons and re-attempt quizzes at any
+   *     time, but it never updates the compliance date / certificate.
+   *   - "window_only"  — review is always available; a retake that DOES
+   *     refresh the compliance date is only available once the learner is
+   *     within `retakeWindowDays` of expiry (or already expired). This is
+   *     the default for regulated-cycle content like HIPAA and BBP.
+   *   - "anytime"      — learner can retake and refresh their compliance
+   *     date whenever they want, without waiting for a window.
+   */
+  retakePolicy?: "review_only" | "window_only" | "anytime";
+  /** Days before expiry the retake window opens, when policy is window_only. */
+  retakeWindowDays?: number;
   aiContext?: string;
   regulatoryRefs?: string[];
   authors: string[]; // user ids

@@ -195,6 +195,11 @@ export default async function CourseBuilderPage({
               <Switch defaultChecked={course.shareToOrg} />
             </div>
 
+            <RetakePolicyControl
+              policy={course.retakePolicy ?? "window_only"}
+              windowDays={course.retakeWindowDays ?? 30}
+            />
+
             <div className="rounded-lg border bg-gradient-to-br from-violet-500/5 to-primary/5 p-3">
               <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-violet-700 dark:text-violet-300">
                 <Brain className="h-3 w-3" /> AI context
@@ -209,6 +214,49 @@ export default async function CourseBuilderPage({
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+function RetakePolicyControl({
+  policy,
+  windowDays,
+}: {
+  policy: "review_only" | "window_only" | "anytime";
+  windowDays: number;
+}) {
+  const labels: Record<typeof policy, string> = {
+    review_only: "Review only (never refresh compliance)",
+    window_only: "Retake during renewal window",
+    anytime: "Retake anytime (refresh compliance at will)",
+  };
+  return (
+    <div className="rounded-lg border bg-muted/20 p-3">
+      <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+        Retake policy
+      </div>
+      <div className="space-y-2 text-xs">
+        {(["review_only", "window_only", "anytime"] as const).map((p) => (
+          <label key={p} className="flex cursor-pointer items-start gap-2">
+            <input
+              type="radio"
+              name="retake_policy"
+              value={p}
+              defaultChecked={policy === p}
+              className="mt-0.5 h-3.5 w-3.5 accent-primary"
+            />
+            <span className="text-sm text-foreground">{labels[p]}</span>
+          </label>
+        ))}
+      </div>
+      <div className="mt-3 flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">Window before expiry</span>
+        <span className="font-mono text-foreground">{windowDays} days</span>
+      </div>
+      <p className="mt-2 text-[10px] text-muted-foreground">
+        Review is always available after completion. This setting controls whether retakes refresh
+        the learner&rsquo;s compliance date.
+      </p>
     </div>
   );
 }
