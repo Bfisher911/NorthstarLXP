@@ -65,7 +65,7 @@ export function defaultHome(user: UserRecord): string {
     case "workspace_viewer":
       return "/org/meridian/w/ehs";
     case "manager":
-      return "/manager";
+      return "/learner";
     default:
       return "/learner";
   }

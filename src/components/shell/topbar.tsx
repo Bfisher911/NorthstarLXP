@@ -21,16 +21,22 @@ export function Topbar({
   user,
   roleLabel,
   scopeLabel,
+  scopeNode,
   impersonating,
   mobileNav,
   isLearner,
+  hasManagerRole,
+  hasNonLearnerSurface,
 }: {
   user: { id: string; name: string; email: string };
   roleLabel: string;
   scopeLabel?: string;
+  scopeNode?: React.ReactNode;
   impersonating?: boolean;
   mobileNav?: React.ReactNode;
   isLearner?: boolean;
+  hasManagerRole?: boolean;
+  hasNonLearnerSurface?: boolean;
 }) {
   const { theme, toggle } = useTheme();
   const palette = useCommandPalette();
@@ -94,6 +100,7 @@ export function Topbar({
           </div>
         </DropdownContent>
       </DropdownRoot>
+      {scopeNode && <div className="hidden md:block">{scopeNode}</div>}
       <DropdownRoot>
         <DropdownTrigger asChild>
           <button className="flex items-center gap-2 rounded-full border bg-card px-1.5 py-1 pr-3 text-left transition hover:bg-accent">
@@ -110,7 +117,17 @@ export function Topbar({
         <DropdownContent align="end" className="w-60">
           <DropdownLabel>{user.email}</DropdownLabel>
           <DropdownSeparator />
-          {!isLearner && (
+          {isLearner && hasManagerRole && (
+            <>
+              <DropdownItem asChild>
+                <a href="/manager" className="flex w-full items-center gap-2">
+                  <UserCog className="h-4 w-4" /> Switch to manager view
+                </a>
+              </DropdownItem>
+              <DropdownSeparator />
+            </>
+          )}
+          {!isLearner && hasNonLearnerSurface && (
             <>
               <DropdownItem asChild>
                 <a href="/learner" className="flex w-full items-center gap-2">

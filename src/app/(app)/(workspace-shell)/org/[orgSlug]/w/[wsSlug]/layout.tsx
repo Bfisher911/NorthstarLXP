@@ -18,8 +18,11 @@ import { redirect } from "next/navigation";
 import {
   getAiSuggestionsForWorkspace,
   getOrgBySlug,
+  getWorkspaceById,
   getWorkspaceBySlug,
+  getWorkspacesForOrg,
 } from "@/lib/data";
+import { WorkspaceSwitcher } from "@/components/shell/workspace-switcher";
 
 export default async function WorkspaceLayout({
   children,
@@ -40,6 +43,36 @@ export default async function WorkspaceLayout({
 
   const base = `/org/${orgSlug}/w/${wsSlug}`;
   const ai = getAiSuggestionsForWorkspace(ws.id).filter((s) => s.status === "pending").length;
+
+  // Build the set of workspaces this user actually administers, so we can show
+  // the switcher dropdown only when there's something to switch between.
+  // Super admins and org admins see every workspace in the org.
+  const isSuperOrOrgAdmin = user.roles.some(
+    (r) => r.role === "super_admin" || r.role === "org_admin"
+  );
+  const adminableWsIds = new Set<string>();
+  if (isSuperOrOrgAdmin) {
+    getWorkspacesForOrg(org.id).forEach((w) => adminableWsIds.add(w.id));
+  } else {
+    user.roles.forEach((r) => {
+      if (
+        r.workspaceId &&
+        ["workspace_admin", "workspace_author", "workspace_viewer"].includes(r.role)
+      ) {
+        adminableWsIds.add(r.workspaceId);
+      }
+    });
+  }
+  const switcherOptions = Array.from(adminableWsIds)
+    .map((id) => getWorkspaceById(id))
+    .filter((w): w is NonNullable<typeof w> => !!w && w.orgId === org.id)
+    .map((w) => ({
+      id: w.id,
+      name: w.name,
+      emoji: w.emoji,
+      href: `/org/${orgSlug}/w/${w.slug}`,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const groups: NavGroup[] = [
     {
@@ -68,16 +101,25 @@ export default async function WorkspaceLayout({
     { label: "Workspace", items: [{ title: "Settings", href: `${base}/settings`, icon: <Settings /> }] },
   ];
 
+  const multi = switcherOptions.length > 1;
+  const hasManagerRole = user.roles.some((r) => r.role === "manager");
+  const hasNonLearnerSurface = true; // Workspace admin is already a non-learner surface.
+
   return (
     <AppShell
       groups={groups}
       user={{ id: user.id, name: user.name, email: user.email }}
       role="workspace_admin"
       roleLabel="Workspace Admin"
-      scopeLabel={`${ws.emoji} ${ws.name}`}
+      scopeLabel={multi ? undefined : `${ws.emoji} ${ws.name}`}
+      scopeNode={
+        multi ? <WorkspaceSwitcher currentId={ws.id} options={switcherOptions} /> : undefined
+      }
       orgId={org.id}
       orgSlug={org.slug}
       impersonating={!!impersonating}
+      hasManagerRole={hasManagerRole}
+      hasNonLearnerSurface={hasNonLearnerSurface}
     >
       {children}
     </AppShell>

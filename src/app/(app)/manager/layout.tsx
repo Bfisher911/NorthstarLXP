@@ -26,6 +26,7 @@ export default async function ManagerLayout({ children }: { children: React.Reac
       scopeLabel="Team"
       orgId={user.orgId}
       impersonating={!!impersonating}
+      hasNonLearnerSurface={true}
     >
       {children}
     </AppShell>

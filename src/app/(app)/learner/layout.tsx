@@ -23,6 +23,11 @@ export default async function LearnerLayout({ children }: { children: React.Reac
       ],
     },
   ];
+  const hasManagerRole = user.roles.some((r) => r.role === "manager");
+  const hasNonLearnerSurface = user.roles.some((r) =>
+    ["manager", "workspace_admin", "workspace_author", "workspace_viewer", "org_admin", "super_admin"].includes(r.role)
+  );
+
   return (
     <AppShell
       groups={groups}
@@ -31,6 +36,8 @@ export default async function LearnerLayout({ children }: { children: React.Reac
       roleLabel="Learner"
       orgId={user.orgId}
       impersonating={!!impersonating}
+      hasManagerRole={hasManagerRole}
+      hasNonLearnerSurface={hasNonLearnerSurface}
     >
       {children}
     </AppShell>

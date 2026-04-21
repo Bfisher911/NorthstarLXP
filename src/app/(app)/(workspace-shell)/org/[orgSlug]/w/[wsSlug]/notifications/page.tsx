@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
-import { BellRing, Edit3 } from "lucide-react";
+import { BellRing, Edit3, Plus } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { NotificationTemplateDialog } from "@/components/notifications/template-dialog";
 import { getOrgBySlug, getWorkspaceBySlug, notificationTemplates } from "@/lib/data";
 
 export default async function NotificationsPage({
@@ -32,9 +33,31 @@ export default async function NotificationsPage({
         description="Workspace-level templates override organization defaults, which override platform defaults. Each workspace admin owns their workspace tone."
       />
 
-      <Section title="Workspace overrides" items={byLevel.workspace} hint={`Only applies within ${ws.name}.`} />
-      <Section title="Organization defaults" items={byLevel.organization} hint="From the org settings." />
-      <Section title="Platform defaults" items={byLevel.platform} hint="Vendor-level fallback." dimmed />
+      <Section
+        title="Workspace overrides"
+        items={byLevel.workspace}
+        hint={`Only applies within ${ws.name}.`}
+        level="workspace"
+        orgId={org.id}
+        workspaceId={ws.id}
+        editable
+      />
+      <Section
+        title="Organization defaults"
+        items={byLevel.organization}
+        hint="From the org settings."
+        level="organization"
+        orgId={org.id}
+        editable={false}
+      />
+      <Section
+        title="Platform defaults"
+        items={byLevel.platform}
+        hint="Vendor-level fallback."
+        level="platform"
+        dimmed
+        editable={false}
+      />
     </div>
   );
 }
@@ -44,11 +67,19 @@ function Section({
   items,
   hint,
   dimmed,
+  level,
+  orgId,
+  workspaceId,
+  editable,
 }: {
   title: string;
   items: typeof notificationTemplates;
   hint: string;
   dimmed?: boolean;
+  level: "platform" | "organization" | "workspace";
+  orgId?: string;
+  workspaceId?: string;
+  editable?: boolean;
 }) {
   return (
     <Card className={dimmed ? "opacity-80" : ""}>
@@ -57,7 +88,18 @@ function Section({
           <CardTitle>{title}</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">{hint}</p>
         </div>
-        <Button variant="outline" size="sm">New template</Button>
+        {editable && (
+          <NotificationTemplateDialog
+            level={level}
+            orgId={orgId}
+            workspaceId={workspaceId}
+            trigger={
+              <Button variant="outline" size="sm">
+                <Plus className="h-3.5 w-3.5" /> New template
+              </Button>
+            }
+          />
+        )}
       </CardHeader>
       <CardContent className="divide-y">
         {items.map((n) => (
@@ -68,9 +110,32 @@ function Section({
               <div className="line-clamp-2 text-xs text-muted-foreground">{n.body}</div>
             </div>
             <Switch defaultChecked={n.enabled} />
-            <Button size="sm" variant="outline">
-              <Edit3 className="h-3 w-3" />
-            </Button>
+            {editable ? (
+              <NotificationTemplateDialog
+                level={n.level}
+                orgId={n.orgId}
+                workspaceId={n.workspaceId}
+                existing={{
+                  id: n.id,
+                  level: n.level,
+                  orgId: n.orgId,
+                  workspaceId: n.workspaceId,
+                  event: n.event,
+                  subject: n.subject,
+                  body: n.body,
+                  enabled: n.enabled,
+                }}
+                trigger={
+                  <Button size="sm" variant="outline" aria-label="Edit template">
+                    <Edit3 className="h-3 w-3" />
+                  </Button>
+                }
+              />
+            ) : (
+              <Button size="sm" variant="ghost" disabled title="Read-only at this scope">
+                <Edit3 className="h-3 w-3" />
+              </Button>
+            )}
           </div>
         ))}
         {items.length === 0 && <div className="py-4 text-sm text-muted-foreground">No overrides here.</div>}

@@ -565,6 +565,155 @@ export async function sendReminder(args: {
   return { ok: true as const, sent: args.userIds.length };
 }
 
+// --------------------- Surveys (authoring) ---------------------
+
+type SurveyOption = { id?: string; label: string; triggersCourseId?: string | null };
+type SurveyQuestion = { id?: string; prompt: string; options: SurveyOption[] };
+
+export async function createSurvey(args: {
+  orgId: string;
+  workspaceId: string;
+  title: string;
+  description: string;
+  schedule: "on_hire" | "annual" | "quarterly" | "manual";
+  questions: SurveyQuestion[];
+}) {
+  const id = `srv_${Math.random().toString(36).slice(2, 8)}`;
+  surveys.push({
+    id,
+    orgId: args.orgId,
+    workspaceId: args.workspaceId,
+    title: args.title,
+    description: args.description,
+    schedule: args.schedule,
+    published: false,
+    questions: args.questions.map((q) => ({
+      id: q.id ?? `sq_${Math.random().toString(36).slice(2, 6)}`,
+      prompt: q.prompt,
+      type: "yes_no",
+      options: q.options.map((o) => ({
+        id: o.id ?? `o_${Math.random().toString(36).slice(2, 6)}`,
+        label: o.label,
+        triggersCourseId: o.triggersCourseId ?? undefined,
+      })),
+    })),
+  });
+  audit("survey.created", id, { title: args.title });
+  revalidatePath("/", "layout");
+  return { ok: true as const, id };
+}
+
+export async function updateSurvey(args: {
+  surveyId: string;
+  title: string;
+  description: string;
+  schedule: "on_hire" | "annual" | "quarterly" | "manual";
+  published: boolean;
+  questions: SurveyQuestion[];
+}) {
+  const i = surveys.findIndex((s) => s.id === args.surveyId);
+  if (i < 0) return { ok: false as const };
+  surveys[i] = {
+    ...surveys[i],
+    title: args.title,
+    description: args.description,
+    schedule: args.schedule,
+    published: args.published,
+    questions: args.questions.map((q) => ({
+      id: q.id ?? `sq_${Math.random().toString(36).slice(2, 6)}`,
+      prompt: q.prompt,
+      type: "yes_no",
+      options: q.options.map((o) => ({
+        id: o.id ?? `o_${Math.random().toString(36).slice(2, 6)}`,
+        label: o.label,
+        triggersCourseId: o.triggersCourseId ?? undefined,
+      })),
+    })),
+  };
+  audit("survey.updated", args.surveyId);
+  revalidatePath("/", "layout");
+  return { ok: true as const };
+}
+
+// --------------------- Notification templates ---------------------
+
+export async function saveNotificationTemplate(args: {
+  id?: string;
+  level: "platform" | "organization" | "workspace";
+  orgId?: string;
+  workspaceId?: string;
+  event:
+    | "assignment"
+    | "due_soon"
+    | "overdue"
+    | "expiration"
+    | "manager_digest"
+    | "completion"
+    | "path_completion"
+    | "certificate_issued"
+    | "live_session_reminder"
+    | "evidence_review";
+  subject: string;
+  body: string;
+  enabled: boolean;
+}) {
+  const { notificationTemplates } = await import("@/lib/data");
+  if (args.id) {
+    const i = notificationTemplates.findIndex((n) => n.id === args.id);
+    if (i >= 0) {
+      notificationTemplates[i] = { ...notificationTemplates[i], ...args };
+      audit("notification_template.updated", args.id);
+    }
+  } else {
+    const id = `nt_${Math.random().toString(36).slice(2, 8)}`;
+    notificationTemplates.push({
+      id,
+      level: args.level,
+      orgId: args.orgId,
+      workspaceId: args.workspaceId,
+      event: args.event,
+      subject: args.subject,
+      body: args.body,
+      enabled: args.enabled,
+    });
+    audit("notification_template.created", id);
+  }
+  revalidatePath("/", "layout");
+  return { ok: true as const };
+}
+
+// --------------------- Smart groups (edit / delete) ---------------------
+
+export async function updateSmartGroup(args: {
+  groupId: string;
+  name: string;
+  description: string;
+  conditions: SmartGroupCondition[];
+  memberCount: number;
+}) {
+  const i = smartGroups.findIndex((g) => g.id === args.groupId);
+  if (i < 0) return { ok: false as const };
+  smartGroups[i] = {
+    ...smartGroups[i],
+    name: args.name,
+    description: args.description,
+    conditions: args.conditions,
+    memberCount: args.memberCount,
+  };
+  audit("smart_group.updated", args.groupId);
+  revalidatePath("/", "layout");
+  return { ok: true as const };
+}
+
+export async function deleteSmartGroup(args: { groupId: string }) {
+  const i = smartGroups.findIndex((g) => g.id === args.groupId);
+  if (i < 0) return { ok: false as const };
+  smartGroups.splice(i, 1);
+  audit("smart_group.deleted", args.groupId);
+  revalidatePath("/", "layout");
+  return { ok: true as const };
+}
+
 // --------------------- Bookmarks ---------------------
 
 export async function toggleBookmark(args: { userId: string; courseId: string }) {

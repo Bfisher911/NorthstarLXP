@@ -22,7 +22,7 @@ export function Breadcrumbs() {
     learner: "Learning",
     manager: "Team",
     org: "Organization",
-    w: "Workspace",
+    w: "Workspaces",
     courses: "Courses",
     paths: "Paths",
     course: "My Training",

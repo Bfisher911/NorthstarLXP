@@ -1609,8 +1609,8 @@ export const personas: Array<{
     userId: "u_manager_meridian_icu",
     title: "Elena Ruiz · People Manager (ICU)",
     role: "manager",
-    homePath: "/manager",
-    blurb: "Oversees training compliance for 5 direct reports in the ICU.",
+    homePath: "/learner",
+    blurb: "Oversees training compliance for 5 direct reports in the ICU — signs in as a learner first.",
   },
   {
     userId: "u_learner_1",

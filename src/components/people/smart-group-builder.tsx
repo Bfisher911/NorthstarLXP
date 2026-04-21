@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
-import { createSmartGroup } from "@/app/actions/mutations";
+import { createSmartGroup, deleteSmartGroup, updateSmartGroup } from "@/app/actions/mutations";
 import { cn, initials } from "@/lib/utils";
 import type { SmartGroupCondition, UserRecord } from "@/lib/types";
 
@@ -66,24 +66,37 @@ function evaluate(u: UserRecord, c: SmartGroupCondition): boolean {
   }
 }
 
+export interface SmartGroupDraft {
+  id: string;
+  name: string;
+  description: string;
+  conditions: SmartGroupCondition[];
+}
+
 export function SmartGroupBuilder({
   orgId,
   workspaceId,
   candidates,
   triggerLabel = "New group",
+  existing,
+  trigger,
 }: {
   orgId: string;
   workspaceId?: string;
   candidates: UserRecord[];
   triggerLabel?: string;
+  existing?: SmartGroupDraft;
+  trigger?: React.ReactNode;
 }) {
+  const isEdit = !!existing?.id;
   const [open, setOpen] = React.useState(false);
-  const [name, setName] = React.useState("");
-  const [description, setDescription] = React.useState("");
-  const [conditions, setConditions] = React.useState<SmartGroupCondition[]>([
-    { field: "department", op: "equals", value: "" },
-  ]);
+  const [name, setName] = React.useState(existing?.name ?? "");
+  const [description, setDescription] = React.useState(existing?.description ?? "");
+  const [conditions, setConditions] = React.useState<SmartGroupCondition[]>(
+    existing?.conditions ?? [{ field: "department", op: "equals", value: "" }]
+  );
   const [pending, startTransition] = React.useTransition();
+  const [deletePending, startDelete] = React.useTransition();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -112,21 +125,41 @@ export function SmartGroupBuilder({
 
   const save = () => {
     startTransition(async () => {
-      const res = await createSmartGroup({
-        orgId,
-        workspaceId,
-        name: name.trim(),
-        description: description.trim(),
-        conditions,
-        memberCount: matches.length,
-      });
+      const res = isEdit
+        ? await updateSmartGroup({
+            groupId: existing!.id,
+            name: name.trim(),
+            description: description.trim(),
+            conditions,
+            memberCount: matches.length,
+          })
+        : await createSmartGroup({
+            orgId,
+            workspaceId,
+            name: name.trim(),
+            description: description.trim(),
+            conditions,
+            memberCount: matches.length,
+          });
       if (res.ok) {
         toast({
-          title: "Smart group created",
+          title: isEdit ? "Smart group updated" : "Smart group created",
           description: `${name} matches ${matches.length} ${matches.length === 1 ? "person" : "people"}.`,
           variant: "success",
         });
-        reset();
+        if (!isEdit) reset();
+        setOpen(false);
+        router.refresh();
+      }
+    });
+  };
+
+  const remove = () => {
+    if (!isEdit) return;
+    startDelete(async () => {
+      const res = await deleteSmartGroup({ groupId: existing!.id });
+      if (res.ok) {
+        toast({ title: "Smart group deleted", variant: "default" });
         setOpen(false);
         router.refresh();
       }
@@ -136,16 +169,19 @@ export function SmartGroupBuilder({
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
-        <Button>
-          <Plus className="h-4 w-4" /> {triggerLabel}
-        </Button>
+        {trigger ?? (
+          <Button>
+            <Plus className="h-4 w-4" /> {triggerLabel}
+          </Button>
+        )}
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[80] bg-background/70 backdrop-blur data-[state=open]:animate-in data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-[90] w-[94vw] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border bg-popover shadow-2xl data-[state=open]:animate-in data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <Dialog.Title className="flex items-center gap-2 text-sm font-semibold">
-              <Users className="h-4 w-4 text-primary" /> Build a smart group
+              <Users className="h-4 w-4 text-primary" />
+              {isEdit ? "Edit smart group" : "Build a smart group"}
             </Dialog.Title>
             <Dialog.Close className="rounded p-1 text-muted-foreground hover:bg-muted">
               <X className="h-4 w-4" />
@@ -254,12 +290,22 @@ export function SmartGroupBuilder({
             </div>
           </div>
           <div className="flex items-center justify-end gap-2 border-t bg-muted/20 px-4 py-3">
+            {isEdit && (
+              <Button
+                variant="outline"
+                onClick={remove}
+                disabled={deletePending}
+                className="mr-auto text-rose-600 hover:text-rose-600"
+              >
+                {deletePending ? "Deleting…" : "Delete group"}
+              </Button>
+            )}
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button onClick={save} disabled={!canSave || pending}>
               <CheckCircle2 className={cn("h-4 w-4")} />
-              {pending ? "Saving…" : "Create group"}
+              {pending ? "Saving…" : isEdit ? "Save changes" : "Create group"}
             </Button>
           </div>
         </Dialog.Content>

@@ -44,6 +44,7 @@ export default async function SuperAdminLayout({ children }: { children: React.R
       roleLabel="Super Admin"
       scopeLabel="Platform"
       impersonating={!!impersonating}
+      hasNonLearnerSurface={true}
     >
       {children}
     </AppShell>

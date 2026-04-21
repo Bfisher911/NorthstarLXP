@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import {
   BarChart3,
   CheckCircle2,
-  Download,
   Flame,
   Link2,
   Share2,
@@ -11,6 +10,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { KpiCard } from "@/components/shell/kpi-card";
+import { ExportCsvButton } from "@/components/reports/export-csv-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -76,7 +76,19 @@ export default async function ReportsPage({
         description="Filter by department, title, location, manager, status, workspace, and timeframe. Export or share a dashboard link."
         actions={
           <>
-            <Button variant="outline"><Download className="h-4 w-4" /> Export CSV</Button>
+            <ExportCsvButton
+              filename={`${orgSlug}-workspace-compliance`}
+              rows={byWorkspace.map((w) => ({
+                workspace: w.label,
+                completed_pct: w.complete,
+                overdue_pct: w.overdue,
+              }))}
+              columns={[
+                { key: "workspace", label: "Workspace" },
+                { key: "completed_pct", label: "Completed %" },
+                { key: "overdue_pct", label: "Overdue %" },
+              ]}
+            />
             <Button><Share2 className="h-4 w-4" /> Share dashboard</Button>
           </>
         }

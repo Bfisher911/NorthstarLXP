@@ -66,6 +66,8 @@ export default async function OrgLayout({
       orgId={org.id}
       orgSlug={org.slug}
       impersonating={!!impersonating}
+      hasManagerRole={user.roles.some((r) => r.role === "manager")}
+      hasNonLearnerSurface={true}
     >
       {children}
     </AppShell>

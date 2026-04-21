@@ -16,22 +16,28 @@ export function AppShell({
   role,
   roleLabel,
   scopeLabel,
+  scopeNode,
   orgId,
   orgSlug,
   impersonating,
   sidebarFooter,
   children,
+  hasManagerRole,
+  hasNonLearnerSurface,
 }: {
   groups: NavGroup[];
   user: { id: string; name: string; email: string };
   role: Role;
   roleLabel: string;
   scopeLabel?: string;
+  scopeNode?: React.ReactNode;
   orgId?: string;
   orgSlug?: string;
   impersonating?: boolean;
   sidebarFooter?: React.ReactNode;
   children: React.ReactNode;
+  hasManagerRole?: boolean;
+  hasNonLearnerSurface?: boolean;
 }) {
   const commands = buildCommandCatalog({ role, orgId, orgSlug });
 
@@ -60,9 +66,12 @@ export function AppShell({
               user={user}
               roleLabel={roleLabel}
               scopeLabel={scopeLabel}
+              scopeNode={scopeNode}
               impersonating={impersonating}
               mobileNav={<MobileNav groups={groups} sidebarFooter={sidebarFooter} />}
               isLearner={role === "learner"}
+              hasManagerRole={hasManagerRole}
+              hasNonLearnerSurface={hasNonLearnerSurface}
             />
             {impersonating && <ImpersonationBanner />}
             <main className="relative flex-1 overflow-y-auto scrollbar-thin bg-gradient-to-b from-background to-muted/20">

@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
-import { Users } from "lucide-react";
+import { Pencil, Users } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SmartGroupBuilder } from "@/components/people/smart-group-builder";
 import { getOrgBySlug, getWorkspaceBySlug, smartGroups, users } from "@/lib/data";
 
@@ -31,16 +32,34 @@ export default async function GroupsPage({
       <div className="grid gap-4 md:grid-cols-2">
         {groups.map((g) => (
           <Card key={g.id}>
-            <CardHeader>
-              <CardTitle>{g.name}</CardTitle>
-              <p className="text-sm text-muted-foreground">{g.description}</p>
+            <CardHeader className="flex flex-row items-start justify-between gap-3">
+              <div className="min-w-0">
+                <CardTitle>{g.name}</CardTitle>
+                <p className="text-sm text-muted-foreground">{g.description}</p>
+              </div>
+              <SmartGroupBuilder
+                orgId={org.id}
+                workspaceId={ws.id}
+                candidates={orgUsers}
+                existing={{
+                  id: g.id,
+                  name: g.name,
+                  description: g.description,
+                  conditions: g.conditions,
+                }}
+                trigger={
+                  <Button variant="outline" size="sm" aria-label="Edit group">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                }
+              />
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Rules</div>
               <div className="flex flex-wrap gap-2">
                 {g.conditions.map((c, i) => (
                   <Badge key={i} variant="outline" className="capitalize">
-                    {c.field.replace("_", " ")} {c.op.replace("_", " ")} "{String(c.value)}"
+                    {c.field.replace("_", " ")} {c.op.replace("_", " ")} &ldquo;{String(c.value)}&rdquo;
                   </Badge>
                 ))}
               </div>
