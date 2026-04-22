@@ -4,28 +4,39 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowLeft,
   ArrowUp,
+  Bold,
   Brain,
   CheckCircle2,
   ClipboardCheck,
   Copy,
   Eye,
   FileText,
+  GripVertical,
+  Heading,
   HelpCircle,
+  Image as ImageIcon,
   Info,
+  List,
   ListChecks,
+  ListOrdered,
   PlayCircle,
   Plus,
+  Quote,
   Save,
   Send,
   Settings,
   ShieldCheck,
   Sparkles,
+  Table as TableIcon,
   Trash2,
   Undo2,
   Video,
+  Wand2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +50,15 @@ import { QuizRunner } from "@/components/learner/quiz-runner";
 import { saveCourse } from "@/app/actions/mutations";
 import type { Course, CourseModule, QuizQuestion } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useKeyboardShortcut } from "@/lib/hooks";
+import {
+  GENERIC_TEMPLATES,
+  LESSON_TEMPLATES,
+  QUIZ_TEMPLATES,
+  generateQuizFromLesson,
+} from "@/lib/course-builder/templates";
+import { validateDraft, type BuilderIssue } from "@/lib/course-builder/validation";
+import { EMOJI_PRESETS, GRADIENT_PRESETS } from "@/lib/course-builder/thumbnail";
 
 type ModuleType = CourseModule["type"];
 
@@ -88,91 +108,113 @@ export function CourseBuilder({
   const { toast } = useToast();
 
   // --------- Editable draft state ---------
-  const initialDraft = React.useMemo(() => cloneDraft(course), [course]);
-  const [draft, setDraft] = React.useState<DraftCourse>(initialDraft);
+  const [savedSnapshot, setSavedSnapshot] = React.useState<DraftCourse>(() => cloneDraft(course));
+  const [draft, setDraft] = React.useState<DraftCourse>(() => cloneDraft(course));
   const [pending, startTransition] = React.useTransition();
   const [activeModuleId, setActiveModuleId] = React.useState<string | null>(
     draft.modules[0]?.id ?? null
   );
   const [preview, setPreview] = React.useState(false);
+  const [autosaveOn, setAutosaveOn] = React.useState(true);
+  const [lastSavedAt, setLastSavedAt] = React.useState<number | null>(null);
+  const [validationOpen, setValidationOpen] = React.useState(false);
 
   // Mark dirty by deep-compare of stable shape — cheap for this size.
   const dirty = React.useMemo(
-    () => JSON.stringify(draft) !== JSON.stringify(initialDraft),
-    [draft, initialDraft]
+    () => JSON.stringify(draft) !== JSON.stringify(savedSnapshot),
+    [draft, savedSnapshot]
   );
 
   const activeModule =
     draft.modules.find((m) => m.id === activeModuleId) ?? draft.modules[0] ?? null;
 
+  // --------- Validation ---------
+  const issues = React.useMemo(() => validateDraft(draft), [draft]);
+  const errorCount = issues.filter((i) => i.severity === "error").length;
+  const warnCount = issues.filter((i) => i.severity === "warning").length;
+  const canPublish = errorCount === 0;
+
+  // --------- Duration reconciliation ---------
+  const moduleMinutes = draft.modules.reduce((s, m) => s + (m.durationMinutes ?? 0), 0);
+
   // --------- Mutations ---------
-  const save = (opts: { publish?: boolean } = {}) => {
-    startTransition(async () => {
-      const res = await saveCourse({
-        id: draft.id,
-        title: draft.title,
-        summary: draft.summary,
-        description: draft.description,
-        category: draft.category,
-        tags: draft.tags,
-        durationMinutes: draft.durationMinutes,
-        required: draft.required,
-        renewalMonths: draft.renewalMonths,
-        certificateEnabled: draft.certificateEnabled,
-        shareToOrg: draft.shareToOrg,
-        aiContext: draft.aiContext,
-        retakePolicy: draft.retakePolicy,
-        retakeWindowDays: draft.retakeWindowDays,
-        learningObjectives: draft.learningObjectives,
-        overview: draft.overview,
-        references: draft.references,
-        modules: draft.modules,
-        published: opts.publish ? true : draft.published,
-      });
-      if (res.ok) {
-        if (opts.publish) {
-          setDraft((d) => ({ ...d, published: true }));
-        }
-        toast({
-          title: opts.publish ? "Course published" : "Course saved",
-          description: `${draft.title} · ${draft.modules.length} module${
-            draft.modules.length === 1 ? "" : "s"
-          }`,
-          variant: "success",
+  const save = React.useCallback(
+    (opts: { publish?: boolean; silent?: boolean } = {}) => {
+      startTransition(async () => {
+        const res = await saveCourse({
+          id: draft.id,
+          title: draft.title,
+          summary: draft.summary,
+          description: draft.description,
+          category: draft.category,
+          tags: draft.tags,
+          durationMinutes: draft.durationMinutes,
+          required: draft.required,
+          renewalMonths: draft.renewalMonths,
+          certificateEnabled: draft.certificateEnabled,
+          shareToOrg: draft.shareToOrg,
+          aiContext: draft.aiContext,
+          retakePolicy: draft.retakePolicy,
+          retakeWindowDays: draft.retakeWindowDays,
+          learningObjectives: draft.learningObjectives,
+          overview: draft.overview,
+          references: draft.references,
+          modules: draft.modules,
+          published: opts.publish ? true : draft.published,
+          thumbnailColor: draft.thumbnailColor,
+          thumbnailEmoji: draft.thumbnailEmoji,
         });
-        router.refresh();
-      } else {
-        toast({ title: "Save failed", description: res.error, variant: "error" });
-      }
-    });
-  };
+        if (res.ok) {
+          const nextDraft = opts.publish ? { ...draft, published: true } : draft;
+          setSavedSnapshot(cloneDraft(toCourseShape(nextDraft, course)));
+          setDraft(nextDraft);
+          setLastSavedAt(Date.now());
+          if (!opts.silent) {
+            toast({
+              title: opts.publish ? "Course published" : "Course saved",
+              description: `${draft.title} · ${draft.modules.length} module${
+                draft.modules.length === 1 ? "" : "s"
+              }`,
+              variant: "success",
+            });
+          }
+          router.refresh();
+        } else if (!opts.silent) {
+          toast({ title: "Save failed", description: res.error, variant: "error" });
+        }
+      });
+    },
+    [draft, router, toast, course]
+  );
 
   const revert = () => {
-    setDraft(initialDraft);
+    setDraft(savedSnapshot);
     toast({ title: "Reverted to last saved", variant: "default" });
   };
 
+  // --------- Autosave ---------
+  React.useEffect(() => {
+    if (!autosaveOn || !dirty || pending) return;
+    const t = setTimeout(() => save({ silent: true }), 3500);
+    return () => clearTimeout(t);
+  }, [autosaveOn, dirty, pending, save]);
+
+  // --------- Keyboard shortcuts ---------
+  useKeyboardShortcut("s", (e) => {
+    const meta = e.metaKey || e.ctrlKey;
+    if (!meta) return;
+    e.preventDefault();
+    if (dirty) save();
+  }, { mod: true });
+  useKeyboardShortcut("p", (e) => {
+    const meta = e.metaKey || e.ctrlKey;
+    if (!meta) return;
+    e.preventDefault();
+    setPreview((p) => !p);
+  }, { mod: true });
+
   // --------- Module operations ---------
-  const addModule = (type: ModuleType) => {
-    const mod: CourseModule = {
-      id: randomId(),
-      title: `New ${MODULE_LABEL[type].toLowerCase()}`,
-      type,
-      durationMinutes: type === "quiz" ? 5 : 3,
-      body:
-        type === "lesson"
-          ? "## Section heading\n\nStart typing your lesson body. You can use **bold**, bulleted and numbered lists, quotes, headings, and tables."
-          : type === "video"
-          ? "A short description of what this video covers. Transcript appears here."
-          : type === "attestation"
-          ? "I have read and understand the policy."
-          : type === "checkpoint"
-          ? "Describe what the learner should do at this checkpoint."
-          : type === "file"
-          ? "Describe the downloadable resource."
-          : undefined,
-      questions: type === "quiz" ? [DEFAULT_QUESTION()] : undefined,
-    };
+  const addModuleFromTemplate = (mod: CourseModule) => {
     setDraft((d) => ({ ...d, modules: [...d.modules, mod] }));
     setActiveModuleId(mod.id);
   };
@@ -200,6 +242,18 @@ export function CourseBuilder({
       if (idx < 0 || target < 0 || target >= d.modules.length) return d;
       const next = [...d.modules];
       [next[idx], next[target]] = [next[target], next[idx]];
+      return { ...d, modules: next };
+    });
+  };
+
+  const moveModuleToIndex = (id: string, target: number) => {
+    setDraft((d) => {
+      const idx = d.modules.findIndex((m) => m.id === id);
+      if (idx < 0) return d;
+      const next = [...d.modules];
+      const [m] = next.splice(idx, 1);
+      const clamp = Math.max(0, Math.min(next.length, target));
+      next.splice(clamp, 0, m);
       return { ...d, modules: next };
     });
   };
@@ -277,15 +331,27 @@ export function CourseBuilder({
           <Badge variant={draft.published ? "success" : "warning"}>
             {draft.published ? "Published" : "Draft"}
           </Badge>
-          {dirty && (
-            <Badge variant="outline" className="text-[10px]">
-              Unsaved changes
-            </Badge>
-          )}
+          <SaveStatus dirty={dirty} saving={pending} lastSavedAt={lastSavedAt} />
+          <ValidationBadge
+            errorCount={errorCount}
+            warnCount={warnCount}
+            onClick={() => setValidationOpen(true)}
+          />
         </div>
         <div className="flex items-center gap-2">
+          <label className="inline-flex cursor-pointer items-center gap-1 text-[11px] text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={autosaveOn}
+              onChange={(e) => setAutosaveOn(e.target.checked)}
+              className="h-3 w-3 accent-primary"
+            />
+            Autosave
+          </label>
           <Button variant="outline" size="sm" onClick={() => setPreview((p) => !p)}>
-            <Eye className="h-3.5 w-3.5" /> {preview ? "Back to editor" : "Preview"}
+            <Eye className="h-3.5 w-3.5" />
+            {preview ? "Back to editor" : "Preview"}
+            <kbd className="ml-1 hidden rounded border bg-muted px-1 font-mono text-[9px] md:inline">⌘P</kbd>
           </Button>
           <Button variant="outline" size="sm" asChild>
             <Link href={viewHref}>Open detail page</Link>
@@ -297,14 +363,41 @@ export function CourseBuilder({
           )}
           <Button size="sm" onClick={() => save()} disabled={pending || !dirty}>
             <Save className="h-3.5 w-3.5" /> {pending ? "Saving…" : "Save"}
+            <kbd className="ml-1 hidden rounded border bg-primary/20 px-1 font-mono text-[9px] md:inline">⌘S</kbd>
           </Button>
           {!draft.published && (
-            <Button size="sm" onClick={() => save({ publish: true })} disabled={pending}>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!canPublish) {
+                  setValidationOpen(true);
+                  toast({
+                    title: "Can't publish yet",
+                    description: `${errorCount} error${errorCount === 1 ? "" : "s"} must be fixed first.`,
+                    variant: "error",
+                  });
+                  return;
+                }
+                save({ publish: true });
+              }}
+              disabled={pending}
+            >
               <Send className="h-3.5 w-3.5" /> Publish
             </Button>
           )}
         </div>
       </div>
+
+      {validationOpen && (
+        <ValidationPanel
+          issues={issues}
+          onClose={() => setValidationOpen(false)}
+          onJumpTo={(issue) => {
+            if (issue.moduleId) setActiveModuleId(issue.moduleId);
+            setValidationOpen(false);
+          }}
+        />
+      )}
 
       {preview ? (
         <CoursePreviewPane draft={draft} />
@@ -314,94 +407,17 @@ export function CourseBuilder({
           <aside className="border-b bg-muted/20 lg:border-b-0 lg:border-r">
             <div className="flex items-center justify-between border-b px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
               <span>Structure · {draft.modules.length}</span>
+              <span>{moduleMinutes}m</span>
             </div>
-            <ol className="space-y-1 p-2">
-              {draft.modules.map((m, i) => {
-                const Icon = MODULE_ICON[m.type];
-                const isActive = m.id === activeModuleId;
-                return (
-                  <li key={m.id}>
-                    <button
-                      type="button"
-                      onClick={() => setActiveModuleId(m.id)}
-                      className={cn(
-                        "group flex w-full items-start gap-2 rounded-md border bg-background px-2 py-2 text-left transition",
-                        isActive
-                          ? "border-primary/60 bg-primary/5 shadow-sm"
-                          : "hover:border-primary/30"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
-                          isActive ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
-                        )}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-xs font-medium">
-                          {i + 1}. {m.title}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {MODULE_LABEL[m.type]}
-                          {m.durationMinutes ? ` · ${m.durationMinutes}m` : ""}
-                        </div>
-                      </div>
-                      <span className="invisible flex flex-col gap-0.5 group-hover:visible">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            moveModule(m.id, -1);
-                          }}
-                          className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                          aria-label="Move up"
-                        >
-                          <ArrowUp className="h-3 w-3" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            moveModule(m.id, 1);
-                          }}
-                          className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                          aria-label="Move down"
-                        >
-                          <ArrowDown className="h-3 w-3" />
-                        </button>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-            <div className="space-y-1 px-2 pb-2">
-              <div className="mb-1 mt-2 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                + Add module
-              </div>
-              {(
-                [
-                  ["lesson", FileText],
-                  ["video", Video],
-                  ["quiz", HelpCircle],
-                  ["checkpoint", ListChecks],
-                  ["attestation", ShieldCheck],
-                  ["file", ClipboardCheck],
-                ] as Array<[ModuleType, React.ComponentType<{ className?: string }>]>
-              ).map(([t, Icon]) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => addModule(t)}
-                  className="flex w-full items-center gap-2 rounded-md border bg-background px-2 py-1.5 text-left text-xs transition hover:border-primary/40"
-                >
-                  <Icon className="h-3.5 w-3.5 text-primary" />
-                  <span className="flex-1">{MODULE_LABEL[t]}</span>
-                  <Plus className="h-3 w-3 text-muted-foreground" />
-                </button>
-              ))}
+            <ModuleList
+              modules={draft.modules}
+              activeId={activeModuleId}
+              onSelect={setActiveModuleId}
+              onMove={moveModuleToIndex}
+              onReorderArrow={moveModule}
+            />
+            <div className="px-2 pb-2">
+              <AddModuleMenu onAdd={addModuleFromTemplate} />
             </div>
           </aside>
 
@@ -419,12 +435,18 @@ export function CourseBuilder({
             ) : (
               <ModuleEditor
                 module={activeModule}
+                modules={draft.modules}
                 onChange={(patch) => updateModule(activeModule.id, patch)}
                 onDuplicate={() => duplicateModule(activeModule.id)}
                 onDelete={() => deleteModule(activeModule.id)}
                 onAddQuestion={() => addQuestion(activeModule.id)}
                 onUpdateQuestion={(qid, patch) => updateQuestion(activeModule.id, qid, patch)}
                 onDeleteQuestion={(qid) => deleteQuestion(activeModule.id, qid)}
+                onAppendQuestions={(qs) => {
+                  updateModule(activeModule.id, {
+                    questions: [...(activeModule.questions ?? []), ...qs],
+                  });
+                }}
               />
             )}
           </section>
@@ -445,21 +467,53 @@ export function CourseBuilder({
 
 function ModuleEditor({
   module: m,
+  modules,
   onChange,
   onDuplicate,
   onDelete,
   onAddQuestion,
   onUpdateQuestion,
   onDeleteQuestion,
+  onAppendQuestions,
 }: {
   module: CourseModule;
+  modules: CourseModule[];
   onChange: (patch: Partial<CourseModule>) => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onAddQuestion: () => void;
   onUpdateQuestion: (qid: string, patch: Partial<QuizQuestion>) => void;
   onDeleteQuestion: (qid: string) => void;
+  onAppendQuestions: (qs: QuizQuestion[]) => void;
 }) {
+  const { toast } = useToast();
+  const bodyRef = React.useRef<HTMLTextAreaElement>(null);
+  const onBodyKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const meta = e.metaKey || e.ctrlKey;
+    if (meta && e.key.toLowerCase() === "b") {
+      e.preventDefault();
+      const el = bodyRef.current;
+      if (!el) return;
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const v = m.body ?? "";
+      const sel = v.slice(start, end) || "text";
+      onChange({ body: v.slice(0, start) + `**${sel}**` + v.slice(end) });
+      requestAnimationFrame(() => {
+        el.focus();
+        el.setSelectionRange(start + 2, start + 2 + sel.length);
+      });
+    }
+  };
+
+  const previousLessonBody = React.useMemo(() => {
+    const idx = modules.findIndex((x) => x.id === m.id);
+    for (let i = idx - 1; i >= 0; i--) {
+      if (modules[i].type === "lesson" && modules[i].body) return modules[i].body ?? "";
+    }
+    return "";
+  }, [modules, m.id]);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
@@ -497,18 +551,28 @@ function ModuleEditor({
             <TabsTrigger value="preview">Preview</TabsTrigger>
           </TabsList>
           <TabsContent value="write">
-            <textarea
-              value={m.body ?? ""}
-              onChange={(e) => onChange({ body: e.target.value })}
-              className="min-h-[340px] w-full rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed"
-              placeholder={
-                "## Heading\n\nParagraph text. Use **bold**, - bullets, 1. numbered, > quotes."
-              }
-            />
+            <div className="rounded-lg border">
+              <RichTextToolbar
+                textareaRef={bodyRef}
+                value={m.body ?? ""}
+                onChange={(v) => onChange({ body: v })}
+              />
+              <textarea
+                ref={bodyRef}
+                value={m.body ?? ""}
+                onChange={(e) => onChange({ body: e.target.value })}
+                onKeyDown={onBodyKeyDown}
+                className="min-h-[340px] w-full rounded-b-lg border-t bg-background p-3 font-mono text-xs leading-relaxed focus:outline-none"
+                placeholder={
+                  "## Heading\n\nParagraph text. Use **bold**, - bullets, 1. numbered, > quotes."
+                }
+              />
+            </div>
             <p className="mt-2 text-[10px] text-muted-foreground">
               Markdown-ish: <code>##</code>/<code>###</code> headings, <code>-</code>/
               <code>*</code> bullets, <code>1.</code> numbered, <code>&gt;</code> quotes,{" "}
-              <code>**bold**</code>, pipe tables.
+              <code>**bold**</code> (<kbd className="rounded border bg-muted px-1 font-mono text-[9px]">⌘B</kbd>),
+              pipe tables.
             </p>
           </TabsContent>
           <TabsContent value="preview">
@@ -538,9 +602,33 @@ function ModuleEditor({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <Label>Questions · {m.questions?.length ?? 0}</Label>
-            <Button variant="outline" size="sm" onClick={onAddQuestion}>
-              <Plus className="h-3.5 w-3.5" /> Add question
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!previousLessonBody}
+                onClick={() => {
+                  const drafts = generateQuizFromLesson(previousLessonBody, 3);
+                  onAppendQuestions(drafts);
+                  toast({
+                    title: "Generated 3 draft questions",
+                    description:
+                      "AI placeholder — edit the prompts and answers to match your lesson.",
+                    variant: "success",
+                  });
+                }}
+                title={
+                  previousLessonBody
+                    ? "Generate 3 draft questions from the most recent lesson body above"
+                    : "Add a lesson module above first to generate questions"
+                }
+              >
+                <Wand2 className="h-3.5 w-3.5" /> Generate from lesson
+              </Button>
+              <Button variant="outline" size="sm" onClick={onAddQuestion}>
+                <Plus className="h-3.5 w-3.5" /> Add question
+              </Button>
+            </div>
           </div>
           {(m.questions ?? []).map((q, qi) => (
             <QuizQuestionEditor
@@ -707,6 +795,18 @@ function CourseSettings({
       <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
         <Settings className="h-3 w-3" /> Course settings
       </div>
+
+      <ThumbnailPicker
+        gradient={draft.thumbnailColor}
+        emoji={draft.thumbnailEmoji}
+        onChange={(color, emoji) =>
+          setDraft((d) => ({
+            ...d,
+            thumbnailColor: color ?? d.thumbnailColor,
+            thumbnailEmoji: emoji ?? d.thumbnailEmoji,
+          }))
+        }
+      />
 
       <div>
         <Label>Summary</Label>
@@ -1055,6 +1155,8 @@ interface DraftCourse {
   references: string[];
   published: boolean;
   modules: CourseModule[];
+  thumbnailColor: string;
+  thumbnailEmoji: string;
 }
 
 function cloneDraft(course: Course): DraftCourse {
@@ -1077,6 +1179,8 @@ function cloneDraft(course: Course): DraftCourse {
     overview: course.overview ?? "",
     references: [...(course.references ?? [])],
     published: course.published,
+    thumbnailColor: course.thumbnailColor,
+    thumbnailEmoji: course.thumbnailEmoji,
     modules: (course.modules ?? []).map((m) => ({
       ...m,
       questions: m.questions?.map((q) => ({
@@ -1085,4 +1189,608 @@ function cloneDraft(course: Course): DraftCourse {
       })),
     })),
   };
+}
+
+/** Folds a DraftCourse back into Course shape for re-cloning. */
+function toCourseShape(d: DraftCourse, base: Course): Course {
+  return {
+    ...base,
+    title: d.title,
+    summary: d.summary,
+    description: d.description,
+    category: d.category,
+    tags: d.tags,
+    durationMinutes: d.durationMinutes,
+    required: d.required,
+    renewalMonths: d.renewalMonths ?? undefined,
+    certificateEnabled: d.certificateEnabled,
+    shareToOrg: d.shareToOrg,
+    aiContext: d.aiContext,
+    retakePolicy: d.retakePolicy,
+    retakeWindowDays: d.retakeWindowDays,
+    learningObjectives: d.learningObjectives,
+    overview: d.overview,
+    references: d.references,
+    published: d.published,
+    thumbnailColor: d.thumbnailColor,
+    thumbnailEmoji: d.thumbnailEmoji,
+    modules: d.modules,
+  };
+}
+
+// ============================================================================
+// Save status indicator
+// ============================================================================
+
+function SaveStatus({
+  dirty,
+  saving,
+  lastSavedAt,
+}: {
+  dirty: boolean;
+  saving: boolean;
+  lastSavedAt: number | null;
+}) {
+  const [, tick] = React.useReducer((n: number) => n + 1, 0);
+  React.useEffect(() => {
+    const id = setInterval(tick, 30000);
+    return () => clearInterval(id);
+  }, []);
+  if (saving) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+        Saving…
+      </span>
+    );
+  }
+  if (dirty) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-300">
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+        Unsaved changes
+      </span>
+    );
+  }
+  if (lastSavedAt) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+        <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+        Saved {relTime(lastSavedAt)}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+      <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+      All caught up
+    </span>
+  );
+}
+
+function relTime(ts: number): string {
+  const diff = Math.max(0, Date.now() - ts);
+  if (diff < 10_000) return "just now";
+  if (diff < 60_000) return `${Math.floor(diff / 1000)}s ago`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  return `${Math.floor(diff / 3_600_000)}h ago`;
+}
+
+// ============================================================================
+// Validation badge + panel
+// ============================================================================
+
+function ValidationBadge({
+  errorCount,
+  warnCount,
+  onClick,
+}: {
+  errorCount: number;
+  warnCount: number;
+  onClick: () => void;
+}) {
+  if (errorCount === 0 && warnCount === 0) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="inline-flex items-center gap-1 rounded-full border bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300"
+      >
+        <CheckCircle2 className="h-3 w-3" /> No issues
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+        errorCount > 0
+          ? "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+          : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+      )}
+    >
+      <AlertTriangle className="h-3 w-3" />
+      {errorCount > 0 && `${errorCount} error${errorCount === 1 ? "" : "s"}`}
+      {errorCount > 0 && warnCount > 0 && " · "}
+      {warnCount > 0 && `${warnCount} warning${warnCount === 1 ? "" : "s"}`}
+    </button>
+  );
+}
+
+function ValidationPanel({
+  issues,
+  onClose,
+  onJumpTo,
+}: {
+  issues: BuilderIssue[];
+  onClose: () => void;
+  onJumpTo: (issue: BuilderIssue) => void;
+}) {
+  if (issues.length === 0) return null;
+  return (
+    <div className="border-b bg-amber-500/5">
+      <div className="flex items-center justify-between px-4 py-2">
+        <div className="text-[10px] font-semibold uppercase tracking-widest text-amber-800 dark:text-amber-200">
+          Review · {issues.length}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded p-1 text-muted-foreground hover:bg-muted"
+          aria-label="Close"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+      <ul className="divide-y">
+        {issues.map((i) => (
+          <li key={i.id}>
+            <button
+              type="button"
+              onClick={() => onJumpTo(i)}
+              className="flex w-full items-start gap-2 px-4 py-2 text-left text-xs hover:bg-accent/40"
+            >
+              <span
+                className={cn(
+                  "mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold uppercase text-white",
+                  i.severity === "error"
+                    ? "bg-rose-500"
+                    : i.severity === "warning"
+                    ? "bg-amber-500"
+                    : "bg-sky-500"
+                )}
+              >
+                {i.severity[0]}
+              </span>
+              <span className="flex-1">{i.message}</span>
+              {i.moduleId && (
+                <span className="text-[10px] text-muted-foreground">Jump →</span>
+              )}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ============================================================================
+// Module list with native HTML5 drag-and-drop
+// ============================================================================
+
+function ModuleList({
+  modules,
+  activeId,
+  onSelect,
+  onMove,
+  onReorderArrow,
+}: {
+  modules: CourseModule[];
+  activeId: string | null;
+  onSelect: (id: string) => void;
+  onMove: (id: string, targetIndex: number) => void;
+  onReorderArrow: (id: string, dir: -1 | 1) => void;
+}) {
+  const [dragId, setDragId] = React.useState<string | null>(null);
+  const [overIndex, setOverIndex] = React.useState<number | null>(null);
+
+  const handleDrop = (targetIndex: number) => {
+    if (!dragId) return;
+    onMove(dragId, targetIndex);
+    setDragId(null);
+    setOverIndex(null);
+  };
+
+  return (
+    <ol className="space-y-1 p-2">
+      {modules.map((m, i) => {
+        const Icon = MODULE_ICON[m.type];
+        const isActive = m.id === activeId;
+        const isDragging = dragId === m.id;
+        const isDropTarget = overIndex === i && dragId !== null && dragId !== m.id;
+        return (
+          <li key={m.id}>
+            {isDropTarget && (
+              <div
+                aria-hidden
+                className="mb-1 h-0.5 w-full rounded-full bg-primary"
+              />
+            )}
+            <div
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", m.id);
+                setDragId(m.id);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                setOverIndex(i);
+              }}
+              onDragLeave={() => setOverIndex((cur) => (cur === i ? null : cur))}
+              onDrop={(e) => {
+                e.preventDefault();
+                handleDrop(i);
+              }}
+              onDragEnd={() => {
+                setDragId(null);
+                setOverIndex(null);
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => onSelect(m.id)}
+                className={cn(
+                  "group flex w-full items-start gap-2 rounded-md border bg-background px-2 py-2 text-left transition",
+                  isActive && "border-primary/60 bg-primary/5 shadow-sm",
+                  !isActive && "hover:border-primary/30",
+                  isDragging && "opacity-50"
+                )}
+              >
+                <span
+                  className="flex h-full cursor-grab items-start pt-0.5 text-muted-foreground/60"
+                  aria-label="Drag handle"
+                >
+                  <GripVertical className="h-3.5 w-3.5" />
+                </span>
+                <span
+                  className={cn(
+                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
+                    isActive ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-xs font-medium">
+                    {i + 1}. {m.title}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {MODULE_LABEL[m.type]}
+                    {m.durationMinutes ? ` · ${m.durationMinutes}m` : ""}
+                  </div>
+                </div>
+                <span className="invisible flex flex-col gap-0.5 group-hover:visible">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onReorderArrow(m.id, -1);
+                    }}
+                    className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label="Move up"
+                  >
+                    <ArrowUp className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onReorderArrow(m.id, 1);
+                    }}
+                    className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label="Move down"
+                  >
+                    <ArrowDown className="h-3 w-3" />
+                  </button>
+                </span>
+              </button>
+            </div>
+          </li>
+        );
+      })}
+      {/* Final drop target — append to end */}
+      <li
+        onDragOver={(e) => {
+          if (!dragId) return;
+          e.preventDefault();
+          setOverIndex(modules.length);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          handleDrop(modules.length);
+        }}
+        className={cn("h-3 rounded", overIndex === modules.length && "bg-primary/30")}
+      />
+    </ol>
+  );
+}
+
+// ============================================================================
+// Add-module menu with templates
+// ============================================================================
+
+function AddModuleMenu({ onAdd }: { onAdd: (mod: CourseModule) => void }) {
+  const [open, setOpen] = React.useState<"lesson" | "quiz" | null>(null);
+  return (
+    <div>
+      <div className="mb-1 mt-2 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+        + Add module
+      </div>
+      <TypeButton
+        label="Lesson"
+        icon={FileText}
+        expanded={open === "lesson"}
+        onExpand={() => setOpen(open === "lesson" ? null : "lesson")}
+      >
+        <TemplateList templates={LESSON_TEMPLATES} onPick={(t) => { onAdd(t.make()); setOpen(null); }} />
+      </TypeButton>
+      <TypeButton
+        label="Quiz"
+        icon={HelpCircle}
+        expanded={open === "quiz"}
+        onExpand={() => setOpen(open === "quiz" ? null : "quiz")}
+      >
+        <TemplateList templates={QUIZ_TEMPLATES} onPick={(t) => { onAdd(t.make()); setOpen(null); }} />
+      </TypeButton>
+      {(
+        [
+          ["video", Video],
+          ["checkpoint", ListChecks],
+          ["attestation", ShieldCheck],
+          ["file", ClipboardCheck],
+        ] as Array<[CourseModule["type"], React.ComponentType<{ className?: string }>]>
+      ).map(([t, Icon]) => (
+        <button
+          key={t}
+          type="button"
+          onClick={() => {
+            const tmpl = GENERIC_TEMPLATES[t];
+            if (tmpl) onAdd(tmpl.make());
+          }}
+          className="mt-1 flex w-full items-center gap-2 rounded-md border bg-background px-2 py-1.5 text-left text-xs transition hover:border-primary/40"
+        >
+          <Icon className="h-3.5 w-3.5 text-primary" />
+          <span className="flex-1 capitalize">{t.replace("_", " ")}</span>
+          <Plus className="h-3 w-3 text-muted-foreground" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TypeButton({
+  label,
+  icon: Icon,
+  expanded,
+  onExpand,
+  children,
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  expanded: boolean;
+  onExpand: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        onClick={onExpand}
+        className={cn(
+          "flex w-full items-center gap-2 rounded-md border bg-background px-2 py-1.5 text-left text-xs transition hover:border-primary/40",
+          expanded && "border-primary/40 bg-primary/5"
+        )}
+      >
+        <Icon className="h-3.5 w-3.5 text-primary" />
+        <span className="flex-1">{label}</span>
+        <Plus className={cn("h-3 w-3 text-muted-foreground transition", expanded && "rotate-45")} />
+      </button>
+      {expanded && <div className="mt-1 space-y-1 pl-3">{children}</div>}
+    </div>
+  );
+}
+
+function TemplateList({
+  templates,
+  onPick,
+}: {
+  templates: { id: string; label: string; description: string; make: () => CourseModule }[];
+  onPick: (t: { id: string; label: string; description: string; make: () => CourseModule }) => void;
+}) {
+  return (
+    <>
+      {templates.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          onClick={() => onPick(t)}
+          className="flex w-full flex-col items-start gap-0.5 rounded-md border bg-background px-2 py-1.5 text-left text-[11px] transition hover:border-primary/40"
+        >
+          <span className="font-medium">{t.label}</span>
+          <span className="text-[10px] text-muted-foreground">{t.description}</span>
+        </button>
+      ))}
+    </>
+  );
+}
+
+// ============================================================================
+// Rich-text toolbar (acts on a textarea selection, inserts markdown tokens)
+// ============================================================================
+
+export function RichTextToolbar({
+  textareaRef,
+  value,
+  onChange,
+}: {
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const wrap = (prefix: string, suffix: string = prefix) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const sel = value.slice(start, end) || "text";
+    const next = value.slice(0, start) + prefix + sel + suffix + value.slice(end);
+    onChange(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + prefix.length, start + prefix.length + sel.length);
+    });
+  };
+
+  const prefixLine = (p: string) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const before = value.slice(0, start);
+    const sel = value.slice(start, end);
+    const after = value.slice(end);
+    const lineStart = before.lastIndexOf("\n") + 1;
+    const lines = (sel || "item").split("\n");
+    const prefixed = lines.map((l) => `${p}${l}`).join("\n");
+    const next = value.slice(0, lineStart) + prefixed + after;
+    onChange(next);
+    requestAnimationFrame(() => el.focus());
+  };
+
+  const insertBlock = (block: string) => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const next = value.slice(0, start) + (start > 0 && value[start - 1] !== "\n" ? "\n\n" : "") + block + "\n";
+    onChange(next);
+    requestAnimationFrame(() => el.focus());
+  };
+
+  const buttons: Array<[React.ComponentType<{ className?: string }>, string, () => void]> = [
+    [Heading, "H2", () => prefixLine("## ")],
+    [Heading, "H3", () => prefixLine("### ")],
+    [Bold, "Bold (⌘B)", () => wrap("**")],
+    [List, "Bullets", () => prefixLine("- ")],
+    [ListOrdered, "Numbered", () => prefixLine("1. ")],
+    [Quote, "Quote", () => prefixLine("> ")],
+    [TableIcon, "Table", () =>
+      insertBlock("| Column A | Column B |\n| --- | --- |\n| Row 1 | Row 1 |\n| Row 2 | Row 2 |")],
+    [ImageIcon, "Image", () => insertBlock("![alt text](https://…)")],
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 rounded-t-lg border border-b-0 bg-muted/40 px-1 py-1">
+      {buttons.map(([Icon, label, fn]) => (
+        <button
+          key={label}
+          type="button"
+          title={label}
+          onClick={fn}
+          className="flex h-7 min-w-[1.75rem] items-center justify-center rounded-md px-1.5 text-xs text-muted-foreground transition hover:bg-background hover:text-foreground"
+        >
+          <Icon className="h-3.5 w-3.5" />
+          {label.startsWith("H") && <span className="ml-0.5 font-bold">{label.slice(1)}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================================
+// Thumbnail picker (gradient + emoji)
+// ============================================================================
+
+function ThumbnailPicker({
+  gradient,
+  emoji,
+  onChange,
+}: {
+  gradient: string;
+  emoji: string;
+  onChange: (gradient?: string, emoji?: string) => void;
+}) {
+  const [open, setOpen] = React.useState<"gradient" | "emoji" | null>(null);
+  return (
+    <div>
+      <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+        Thumbnail
+      </div>
+      <button
+        type="button"
+        onClick={() => setOpen(open === "gradient" ? null : "gradient")}
+        className={cn(
+          "relative flex h-20 w-full items-center justify-center overflow-hidden rounded-xl border bg-gradient-to-br text-5xl text-white shadow transition hover:ring-2 hover:ring-primary/30",
+          gradient
+        )}
+      >
+        <span aria-hidden className="absolute inset-0 bg-star-field opacity-40" />
+        <span className="relative drop-shadow">{emoji}</span>
+      </button>
+      {open === "gradient" && (
+        <div className="mt-2 grid grid-cols-7 gap-1">
+          {GRADIENT_PRESETS.map((p) => (
+            <button
+              key={p.className}
+              type="button"
+              title={p.label}
+              onClick={() => onChange(p.className, undefined)}
+              className={cn(
+                "h-7 w-full rounded-md bg-gradient-to-br ring-1 ring-inset ring-border transition",
+                p.className,
+                gradient === p.className && "ring-2 ring-primary"
+              )}
+            />
+          ))}
+        </div>
+      )}
+      <div className="mt-2 flex items-center gap-2">
+        <span className="text-[10px] text-muted-foreground">Emoji</span>
+        <button
+          type="button"
+          onClick={() => setOpen(open === "emoji" ? null : "emoji")}
+          className="flex h-8 w-8 items-center justify-center rounded-md border bg-background text-base hover:border-primary/40"
+        >
+          {emoji}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(open === "gradient" ? null : "gradient")}
+          className="text-[10px] text-muted-foreground hover:text-foreground"
+        >
+          Change gradient
+        </button>
+      </div>
+      {open === "emoji" && (
+        <div className="mt-2 grid grid-cols-8 gap-1 rounded-md border bg-background p-2">
+          {EMOJI_PRESETS.map((e) => (
+            <button
+              key={e}
+              type="button"
+              onClick={() => onChange(undefined, e)}
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-md text-base transition hover:bg-muted",
+                emoji === e && "bg-primary/10 ring-2 ring-primary/40"
+              )}
+            >
+              {e}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

@@ -199,6 +199,8 @@ export async function saveCourse(args: {
   references?: string[];
   published?: boolean;
   modules?: Course["modules"];
+  thumbnailColor?: string;
+  thumbnailEmoji?: string;
 }) {
   const i = courses.findIndex((c) => c.id === args.id);
   if (i < 0) return { ok: false as const, error: "Course not found" };
@@ -233,6 +235,8 @@ export async function saveCourse(args: {
     ...(args.references !== undefined ? { references: args.references } : {}),
     ...(args.published !== undefined ? { published: args.published } : {}),
     ...(args.modules !== undefined ? { modules: args.modules } : {}),
+    ...(args.thumbnailColor !== undefined ? { thumbnailColor: args.thumbnailColor } : {}),
+    ...(args.thumbnailEmoji !== undefined ? { thumbnailEmoji: args.thumbnailEmoji } : {}),
     updatedAt: new Date().toISOString(),
   };
   courses[i] = next;
