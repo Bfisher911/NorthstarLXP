@@ -175,6 +175,85 @@ export async function updateCourse(formData: FormData) {
   return { ok: true as const };
 }
 
+// Full-fledged course save for the builder. Accepts a partial patch of
+// metadata + the complete modules array and overwrites the in-memory course
+// record. Mirrors key metadata to Supabase; the module tree stays in memory
+// until the authoring schema is extended in Postgres.
+export async function saveCourse(args: {
+  id: string;
+  title?: string;
+  summary?: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  durationMinutes?: number;
+  required?: boolean;
+  renewalMonths?: number | null;
+  certificateEnabled?: boolean;
+  shareToOrg?: boolean;
+  aiContext?: string;
+  retakePolicy?: "review_only" | "window_only" | "anytime";
+  retakeWindowDays?: number;
+  learningObjectives?: string[];
+  overview?: string;
+  references?: string[];
+  published?: boolean;
+  modules?: Course["modules"];
+}) {
+  const i = courses.findIndex((c) => c.id === args.id);
+  if (i < 0) return { ok: false as const, error: "Course not found" };
+  const current = courses[i];
+  const next: Course = {
+    ...current,
+    ...(args.title !== undefined ? { title: args.title } : {}),
+    ...(args.summary !== undefined ? { summary: args.summary } : {}),
+    ...(args.description !== undefined ? { description: args.description } : {}),
+    ...(args.category !== undefined ? { category: args.category } : {}),
+    ...(args.tags !== undefined ? { tags: args.tags } : {}),
+    ...(args.durationMinutes !== undefined
+      ? { durationMinutes: Math.max(1, args.durationMinutes) }
+      : {}),
+    ...(args.required !== undefined ? { required: args.required } : {}),
+    ...(args.renewalMonths !== undefined
+      ? { renewalMonths: args.renewalMonths ?? undefined }
+      : {}),
+    ...(args.certificateEnabled !== undefined
+      ? { certificateEnabled: args.certificateEnabled }
+      : {}),
+    ...(args.shareToOrg !== undefined ? { shareToOrg: args.shareToOrg } : {}),
+    ...(args.aiContext !== undefined ? { aiContext: args.aiContext } : {}),
+    ...(args.retakePolicy !== undefined ? { retakePolicy: args.retakePolicy } : {}),
+    ...(args.retakeWindowDays !== undefined
+      ? { retakeWindowDays: Math.max(1, args.retakeWindowDays) }
+      : {}),
+    ...(args.learningObjectives !== undefined
+      ? { learningObjectives: args.learningObjectives }
+      : {}),
+    ...(args.overview !== undefined ? { overview: args.overview } : {}),
+    ...(args.references !== undefined ? { references: args.references } : {}),
+    ...(args.published !== undefined ? { published: args.published } : {}),
+    ...(args.modules !== undefined ? { modules: args.modules } : {}),
+    updatedAt: new Date().toISOString(),
+  };
+  courses[i] = next;
+  mirror(
+    db.updateCourse(args.id, {
+      title: next.title,
+      summary: next.summary,
+      description: next.description,
+      required: next.required,
+      published: next.published,
+    }),
+    "saveCourse"
+  );
+  audit("course.saved", args.id, {
+    title: next.title,
+    moduleCount: next.modules?.length ?? 0,
+  });
+  revalidatePath("/", "layout");
+  return { ok: true as const };
+}
+
 export async function publishCourse(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const i = courses.findIndex((c) => c.id === id);
