@@ -1,11 +1,22 @@
 import { cookies } from "next/headers";
 import { getUserById, personas, users } from "./data";
 import type { Role, UserRecord } from "./types";
+import { supabaseServer } from "./supabase-server";
+import { supabaseEnabled } from "./supabase";
 
 /**
- * Demo auth layer. A signed-in user is identified by the `northstar_uid` cookie.
- * Replace with Supabase / NextAuth in production. All UI paths go through
- * `getSession()` so swapping the provider is a single-file change.
+ * Unified session resolver. Supabase Auth is the first-class path; a cookie
+ * carrying a persona ID is kept as a demo / dev fallback and is the only
+ * session mechanism when Supabase isn't configured.
+ *
+ * Resolution order:
+ *   1. If Supabase is enabled AND a valid Supabase session exists, look up
+ *      the linked public.users row via users.auth_id.
+ *   2. Otherwise fall back to the demo `northstar_uid` cookie (dev / preview
+ *      environments).
+ *
+ * This lets us keep the persona picker usable for product reviews while
+ * prod traffic goes through real auth.
  */
 
 const COOKIE = "northstar_uid";
@@ -17,6 +28,44 @@ export type Session = {
 };
 
 export async function getSession(): Promise<Session | null> {
+  // Supabase Auth — preferred path.
+  if (supabaseEnabled()) {
+    const supabase = await supabaseServer();
+    if (supabase) {
+      const { data } = await supabase.auth.getUser();
+      const authUser = data?.user;
+      if (authUser) {
+        // Resolve the linked public.users record via auth_id or email.
+        const { data: linkedRow } = await supabase
+          .from("users")
+          .select("id, email")
+          .eq("auth_id", authUser.id)
+          .maybeSingle();
+        let publicId: string | null = (linkedRow as { id?: string } | null)?.id ?? null;
+        if (!publicId && authUser.email) {
+          // Fall back to the in-memory user lookup by email so the UI keeps
+          // working even if the adapter-side id hasn't been backfilled.
+          const byEmail = users.find(
+            (u) => u.email.toLowerCase() === authUser.email!.toLowerCase()
+          );
+          if (byEmail) publicId = byEmail.id;
+        }
+        if (publicId) {
+          const user = getUserById(publicId);
+          if (user) {
+            const store = await cookies();
+            const impUid = store.get(IMPERSONATE_COOKIE)?.value;
+            if (impUid && impUid !== publicId) {
+              return { user, impersonating: { originalUserId: impUid } };
+            }
+            return { user };
+          }
+        }
+      }
+    }
+  }
+
+  // Demo cookie fallback. Useful in dev + when Supabase isn't configured.
   const store = await cookies();
   const uid = store.get(COOKIE)?.value;
   if (!uid) return null;

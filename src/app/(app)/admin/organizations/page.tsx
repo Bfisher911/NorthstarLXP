@@ -4,10 +4,16 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { organizations, workspaces } from "@/lib/data";
+import { listOrgs } from "@/lib/repo/orgs";
+import { getWorkspacesForOrg } from "@/lib/repo/workspaces";
 import { formatPct } from "@/lib/utils";
 
-export default function OrgIndexPage() {
+export default async function OrgIndexPage() {
+  const organizations = await listOrgs();
+  const workspaceCounts = await Promise.all(
+    organizations.map(async (o) => ({ id: o.id, count: (await getWorkspacesForOrg(o.id)).length }))
+  );
+  const countsById = new Map(workspaceCounts.map((c) => [c.id, c.count]));
   return (
     <div className="space-y-6">
       <PageHeader
@@ -48,7 +54,7 @@ export default function OrgIndexPage() {
                     <Badge variant="outline" className="capitalize">{o.plan}</Badge>
                   </td>
                   <td className="px-4 py-3">{o.activeLearners.toLocaleString()} / {o.seats.toLocaleString()}</td>
-                  <td className="px-4 py-3">{workspaces.filter((w) => w.orgId === o.id).length}</td>
+                  <td className="px-4 py-3">{countsById.get(o.id) ?? 0}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-24 rounded-full bg-muted">
